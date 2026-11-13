@@ -15,6 +15,7 @@ import {
   Skull,
   Trash2,
   Undo2,
+  Wand2,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { AreaChart, Sparkline } from '../components/Charts';
@@ -282,6 +283,25 @@ function Overview({ app, st, reload }: { app: AppDetailData; st: UnitStatus | nu
     setHist((h) => [...h.slice(-299), { t: Date.now(), cpu: st.cpu ?? 0, mem: st.memory ?? 0 }]);
   }, [st]);
   const wrongPort = st?.state === 'running' && (st.listen ?? []).length > 0 && app.port && !(st.listen ?? []).some((l) => l.port === app.port);
+  // 앱이 실제로 열어 둔 포트들 (HROne 이 쓸 수 있는 1024~65535 만)
+  const listenPorts = [...new Set((st?.listen ?? []).map((l) => l.port))].filter((p) => p >= 1024 && p <= 65535).slice(0, 3);
+  /** 설정 포트를 앱이 실제로 쓰는 포트로 맞춘다. 앱은 다시 시작하지 않는다 */
+  const fixPort = async (p: number) => {
+    const at = (st?.listen ?? []).filter((l) => l.port === p);
+    const loopbackOk = at.some((l) => ['127.0.0.1', '::1', 'localhost', '0.0.0.0', '::', '*', '[::]'].includes(l.addr));
+    const ok = await confirm({
+      title: '포트를 자동으로 맞출까요?',
+      body: (
+        <>
+          앱이 실제로 {p} 포트에서 열려 있습니다. HROne 설정의 포트를 {app.port} → {p} 로 바꿉니다. 앱은 다시 시작하지 않습니다.
+          {!loopbackOk && at[0] && <span className="mt-2 block text-warn">앱이 {at[0].addr} 에서만 열려 있어 127.0.0.1:{p} 로는 접속되지 않을 수 있습니다.</span>}
+        </>
+      ),
+      confirm: '맞추기',
+    });
+    if (!ok) return;
+    if (await run(`port-${p}`, () => api.patch(`/api/apps/${app.slug}`, { config: { port: p } }), `포트를 ${p} 로 맞췄습니다`)) reload();
+  };
   const memLimit = app.config.resources.memoryMB ? app.config.resources.memoryMB * 1024 * 1024 : null;
 
   const on = st?.state === 'running';
@@ -307,7 +327,17 @@ function Overview({ app, st, reload }: { app: AppDetailData; st: UnitStatus | nu
           )}
           {wrongPort && (
             <Notice tone="yellow" title={`앱이 설정된 포트(${app.port})가 아닌 곳에서 열려 있습니다`} icon={<AlertTriangle size={17} />}>
-              실제: {(st?.listen ?? []).map((l) => `${l.addr}:${l.port}`).join(', ')} — 코드에서 process.env.PORT / os.environ["PORT"] 를 쓰세요.
+              <span>
+                실제: <span className="mono text-[13px]">{(st?.listen ?? []).map((l) => `${l.addr}:${l.port}`).join(', ')}</span>. 앱 코드에 포트가 정해져 있다면 HROne 설정을 그 포트로 맞추면 됩니다.
+              </span>
+              <span className="mt-3 flex flex-wrap items-center gap-2">
+                {listenPorts.map((p) => (
+                  <Button key={p} size="sm" variant="primary" icon={<Wand2 size={14} />} loading={busy === `port-${p}`} onClick={() => fixPort(p)}>
+                    포트 {p} 에 맞추기
+                  </Button>
+                ))}
+                <span className="text-[13px] text-muted">코드를 고치려면 process.env.PORT / os.environ["PORT"] 를 쓰세요.</span>
+              </span>
             </Notice>
           )}
           {app.lastPollError && (

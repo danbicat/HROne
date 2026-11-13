@@ -74,7 +74,7 @@ const units: Record<string, UnitStatus> = {};
 /** 유닛별 기준 CPU(%) / 메모리(bytes) — 매 틱 조금씩 흔든다 */
 const base: Record<string, { cpu: number; mem: number }> = {};
 
-function runningUnit(unit: string, opts: { cpu: number; mem: number; port?: number | null; since?: number; restarts?: number; tasks?: number }): UnitStatus {
+function runningUnit(unit: string, opts: { cpu: number; mem: number; port?: number | null; since?: number; restarts?: number; tasks?: number; listen?: { addr: string; port: number }[] }): UnitStatus {
   base[unit] = { cpu: opts.cpu, mem: opts.mem };
   return {
     unit,
@@ -90,7 +90,7 @@ function runningUnit(unit: string, opts: { cpu: number; mem: number; port?: numb
     enabled: true,
     exitStatus: null,
     result: 'success',
-    listen: opts.port ? [{ addr: '0.0.0.0', port: opts.port }] : [],
+    listen: opts.listen ?? (opts.port ? [{ addr: '0.0.0.0', port: opts.port }] : []),
   };
 }
 
@@ -362,7 +362,15 @@ for (const a of apps) {
   else if (a.slug === 'ticket') {
     units[u] = failedUnit(u);
     base[u] = { cpu: 0.8, mem: 64 * MB };
-  } else units[u] = runningUnit(u, { cpu: l!.cpu, mem: l!.mem, port: a.config.port, tasks: l!.tasks, restarts: a.slug === 'hrbot' ? 2 : 0 });
+  } else units[u] = runningUnit(u, {
+      cpu: l!.cpu,
+      mem: l!.mem,
+      port: a.config.port,
+      tasks: l!.tasks,
+      restarts: a.slug === 'hrbot' ? 2 : 0,
+      // 채팅 필터는 코드에 포트를 박아 둔 앱: 설정(3002)과 다른 7790 에서 열린다
+      listen: a.slug === 'chatfilter' ? [{ addr: '100.101.32.7', port: 7790 }] : undefined,
+    });
 }
 
 // ---------- 데이터베이스 ----------
