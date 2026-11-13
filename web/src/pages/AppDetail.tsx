@@ -7,6 +7,8 @@ import {
   GitCommitHorizontal,
   History,
   Link2,
+  Pencil,
+  Plus,
   RefreshCw,
   Rocket,
   RotateCcw,
@@ -19,7 +21,7 @@ import { AreaChart, Sparkline } from '../components/Charts';
 import { EnvEditor } from '../components/EnvEditor';
 import { FileBrowser } from '../components/FileBrowser';
 import { DeployLog, LogViewer } from '../components/LogViewer';
-import { AppPower, DeployBadge, PendingDeploy, TRIGGER, modeText, type Deploy } from '../components/shared';
+import { AppPower, DeployBadge, PendingDeploy, TRIGGER, hostOf, modeText, normalizeUrl, type Deploy } from '../components/shared';
 import {
   Badge,
   Button,
@@ -186,6 +188,90 @@ export function AppDetail({ slug, me }: { slug: string; me: Me }) {
 
 // ---------- 개요 ----------
 
+/** 공개 주소(배포 도메인)를 개요에서 바로 고친다. 설정 → 기본의 공개 주소와 같은 값 */
+function PublicUrlEditor({ app, reload }: { app: AppDetailData; reload: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(app.publicUrl);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    if (!editing) setValue(app.publicUrl);
+  }, [app.publicUrl, editing]);
+
+  const save = async () => {
+    const next = normalizeUrl(value);
+    if (next === app.publicUrl) return setEditing(false);
+    setSaving(true);
+    try {
+      await api.patch(`/api/apps/${app.slug}`, { config: { publicUrl: next } });
+      toast.ok(next ? '공개 주소를 저장했습니다' : '공개 주소를 지웠습니다');
+      setEditing(false);
+      reload();
+    } catch (e) {
+      toast.error(errorText(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (editing)
+    return (
+      <form
+        className="space-y-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void save();
+        }}
+      >
+        <label className="label" htmlFor="public-url">
+          공개 주소
+        </label>
+        <div className="flex flex-wrap gap-2">
+          <input
+            id="public-url"
+            className="input min-w-0 flex-1 basis-56"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => e.key === 'Escape' && setEditing(false)}
+            placeholder="https://app.example.com"
+            inputMode="url"
+            autoCapitalize="none"
+            autoFocus
+          />
+          <div className="flex gap-2">
+            <Button type="submit" variant="primary" loading={saving}>
+              저장
+            </Button>
+            <Button variant="secondary" onClick={() => setEditing(false)} disabled={saving}>
+              취소
+            </Button>
+          </div>
+        </div>
+        <div className="hint !mt-1">cloudflared 등으로 연결한 도메인. https:// 는 빼고 써도 됩니다. 비우면 링크가 사라집니다.</div>
+      </form>
+    );
+
+  return app.publicUrl ? (
+    <div className="flex items-center justify-between gap-3">
+      <a href={app.publicUrl} target="_blank" rel="noreferrer" className="inline-flex min-w-0 items-center gap-1.5 text-[17px] font-medium text-accent-2 hover:opacity-75">
+        <span className="truncate">{hostOf(app.publicUrl)}</span>
+        <ExternalLink size={15} className="shrink-0" />
+      </a>
+      <Button size="sm" variant="plain" icon={<Pencil size={14} />} onClick={() => setEditing(true)}>
+        수정
+      </Button>
+    </div>
+  ) : (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <p className="min-w-0 flex-1 text-[14px] leading-relaxed text-muted">
+        {app.port ? 'cloudflared 터널의 서비스 주소를 아래 주소로 지정하고, 연결한 도메인을 적어 두면 여기와 앱 목록에 링크로 나옵니다.' : '연결한 도메인을 적어 두면 여기와 앱 목록에 링크로 나옵니다.'}
+      </p>
+      <Button size="sm" variant="secondary" icon={<Plus size={14} />} onClick={() => setEditing(true)}>
+        공개 주소 추가
+      </Button>
+    </div>
+  );
+}
+
 function Overview({ app, st, reload }: { app: AppDetailData; st: UnitStatus | null; reload: () => void }) {
   const { busy, run } = useAction();
   const confirm = useConfirm();
@@ -195,7 +281,6 @@ function Overview({ app, st, reload }: { app: AppDetailData; st: UnitStatus | nu
     if (!st || st.state !== 'running') return;
     setHist((h) => [...h.slice(-299), { t: Date.now(), cpu: st.cpu ?? 0, mem: st.memory ?? 0 }]);
   }, [st]);
-  const exposed = (st?.listen ?? []).filter((l) => !['127.0.0.1', '::1', 'localhost'].includes(l.addr));
   const wrongPort = st?.state === 'running' && (st.listen ?? []).length > 0 && app.port && !(st.listen ?? []).some((l) => l.port === app.port);
   const memLimit = app.config.resources.memoryMB ? app.config.resources.memoryMB * 1024 * 1024 : null;
 
@@ -209,7 +294,7 @@ function Overview({ app, st, reload }: { app: AppDetailData; st: UnitStatus | nu
 
   return (
     <div className="space-y-9">
-      {(!app.deployedSha && !app.busy) || exposed.length > 0 || wrongPort || app.lastPollError ? (
+      {(!app.deployedSha && !app.busy) || wrongPort || app.lastPollError ? (
         <div className="space-y-3">
           {!app.deployedSha && !app.busy && (
             <Notice tone="yellow" title="아직 배포되지 않았습니다" icon={<AlertTriangle size={17} />}>
@@ -218,11 +303,6 @@ function Overview({ app, st, reload }: { app: AppDetailData; st: UnitStatus | nu
                 배포 기록
               </button>
               에서 로그를 확인하고, 설정을 고친 뒤 다시 배포하세요.
-            </Notice>
-          )}
-          {exposed.length > 0 && (
-            <Notice tone="red" title="외부에 노출된 포트가 있습니다" icon={<AlertTriangle size={17} />}>
-              {exposed.map((l) => `${l.addr}:${l.port}`).join(', ')} 로 열려 있습니다. cloudflared 만 쓸 거라면 앱이 HOST 환경변수(127.0.0.1)로 listen 하도록 고치세요.
             </Notice>
           )}
           {wrongPort && (
@@ -267,18 +347,7 @@ function Overview({ app, st, reload }: { app: AppDetailData; st: UnitStatus | nu
 
           <Card title="접속">
             <div className="space-y-4 text-[15px]">
-              {app.publicUrl ? (
-                <a href={app.publicUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-accent-2 hover:opacity-75">
-                  {app.publicUrl.replace(/^https?:\/\//, '')}
-                  <ExternalLink size={14} />
-                </a>
-              ) : (
-                app.port && (
-                  <p className="text-[14px] leading-relaxed text-muted">
-                    인터넷에 공개하려면 cloudflared 터널의 서비스 주소를 아래 주소로 지정하세요. 공개 주소는 설정 → 기본에 적어 두면 여기 링크로 나옵니다.
-                  </p>
-                )
-              )}
+              <PublicUrlEditor app={app} reload={reload} />
               {app.port ? <CopyField value={`http://127.0.0.1:${app.port}`} /> : <p className="text-muted">포트 없이 실행되는 앱입니다 (봇 등).</p>}
               {(st?.listen ?? []).length > 0 && (
                 <div className="text-[13px] text-muted">

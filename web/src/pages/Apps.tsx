@@ -1,7 +1,7 @@
-import { Boxes, ExternalLink, Plus, Search } from 'lucide-react';
+import { Boxes, Plus, Search } from 'lucide-react';
 import { useState } from 'react';
-import { AppMenu, AppPower, modeText } from '../components/shared';
-import { Badge, Button, Empty, ErrorBox, IconButton, List, Loading, PageHeader, Row, StatusBadge, cx } from '../components/ui';
+import { AppMenu, AppPower, DomainLink, modeText } from '../components/shared';
+import { Badge, Button, Empty, ErrorBox, List, Loading, PageHeader, Row, StatusBadge, cx } from '../components/ui';
 import { ago, bytes, pct, sha } from '../lib/format';
 import { navigate, useTitle } from '../lib/router';
 import { useApi, useLive } from '../lib/store';
@@ -62,7 +62,7 @@ export function Apps() {
 function AppRow({ a, st }: { a: AppSummary; st: AppSummary['status'] }) {
   const state = a.deployedSha ? st?.state : 'not-deployed';
   const usage = st?.state === 'running' ? `CPU ${pct(st.cpu, 1)} · ${bytes(st.memory)}` : null;
-  const address = a.publicUrl ? a.publicUrl.replace(/^https?:\/\//, '') : a.port ? `127.0.0.1:${a.port}` : '포트 없음';
+  const local = a.port ? `127.0.0.1:${a.port}` : '포트 없음';
   // 지금 눈여겨볼 배포 상태가 있으면 그것을, 없으면 마지막 배포 시각
   const deploy =
     a.openDeploy?.status === 'pending' ? (
@@ -87,9 +87,12 @@ function AppRow({ a, st }: { a: AppSummary; st: AppSummary['status'] }) {
         </span>
       }
       sub={
-        <span className="flex items-center gap-2">
+        <span className="flex min-w-0 items-center gap-2">
           <StatusBadge state={state} />
-          <span className="truncate">
+          {/* 공개 주소는 누르면 바로 그 사이트로 */}
+          {a.publicUrl && <DomainLink url={a.publicUrl} className="md:max-w-[60%] md:shrink-0" />}
+          {/* 폰에서는 도메인이 다 보이게 저장소 이름을 숨긴다 */}
+          <span className={cx('min-w-0 truncate', a.publicUrl && 'max-md:hidden')}>
             {repo} · {a.branch}
           </span>
         </span>
@@ -101,7 +104,7 @@ function AppRow({ a, st }: { a: AppSummary; st: AppSummary['status'] }) {
           </span>
           <span className="hidden shrink-0 items-center gap-6 md:flex">
             <span className="hidden w-44 min-w-0 text-right lg:block">
-              <span className={cx('block truncate text-[14px] text-fg-2', !a.publicUrl && !!a.port && 'mono text-[13px]')}>{address}</span>
+              <span className={cx('block truncate text-fg-2', a.port ? 'mono text-[13px]' : 'text-[14px]')}>{local}</span>
               <span className="block truncate text-[12.5px] text-muted">{usage ?? (a.autostart ? '' : '자동 시작 꺼짐')}</span>
             </span>
             <span className="hidden w-36 min-w-0 text-right xl:block">
@@ -109,11 +112,6 @@ function AppRow({ a, st }: { a: AppSummary; st: AppSummary['status'] }) {
               <span className="block truncate text-[12.5px] text-muted">{modeText(a.deployMode, a.deployDelaySec)}</span>
             </span>
             <span className="flex items-center gap-1">
-              {a.publicUrl && (
-                <IconButton title={a.publicUrl} onClick={() => window.open(a.publicUrl, '_blank', 'noopener')}>
-                  <ExternalLink size={15} />
-                </IconButton>
-              )}
               <AppPower slug={a.slug} state={st?.state} deployed={!!a.deployedSha} />
             </span>
           </span>

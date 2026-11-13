@@ -145,6 +145,40 @@ export function AppPower({ slug, state, deployed, size = 'sm' }: { slug: string;
   );
 }
 
+/** 공개 주소 입력값 정리: 앞뒤 공백, 끝 / 를 지우고 https:// 가 없으면 붙인다 */
+export function normalizeUrl(v: string) {
+  const t = v.trim().replace(/\/+$/, '');
+  if (!t) return '';
+  return /^https?:\/\//i.test(t) ? t : `https://${t}`;
+}
+
+export const hostOf = (url: string) => url.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+
+/**
+ * 목록 줄(링크) 안에서 쓰는 공개 주소. 누르면 줄의 상세 화면 대신 그 주소를 새 탭으로 연다.
+ * 줄 자체가 <a> 라서 <a> 를 겹칠 수 없으니 span 으로 만든다.
+ */
+export function DomainLink({ url, className }: { url: string; className?: string }) {
+  const open = (e: React.SyntheticEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    window.open(url, '_blank', 'noopener');
+  };
+  return (
+    <span
+      role="link"
+      tabIndex={0}
+      title={`${url} 열기`}
+      onClick={open}
+      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && open(e)}
+      className={cx('inline-flex min-w-0 items-center gap-1 text-accent-2 hover:underline cursor-pointer', className)}
+    >
+      <span className="truncate">{hostOf(url)}</span>
+      <ExternalLink size={12} className="shrink-0 opacity-70" />
+    </span>
+  );
+}
+
 /** 폰 목록용: "···" 를 누르면 아래에서 동작 시트가 올라온다 (AppPower 와 같은 동작) */
 export function AppMenu({ slug, name, state, deployed, publicUrl }: { slug: string; name: string; state: RunState | null | undefined; deployed: boolean; publicUrl?: string }) {
   const [open, setOpen] = useState(false);

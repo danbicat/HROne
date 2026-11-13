@@ -2,7 +2,7 @@ import { Archive, Bell, Download, Gauge, GitBranch, HardDrive, KeyRound, Play, R
 import { Children, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { DangerDialog, JobDialog } from '../components/Dialogs';
 import type { Me } from '../components/Layout';
-import { modeText } from '../components/shared';
+import { modeText, normalizeUrl } from '../components/shared';
 import { Button, CopyField, Field, Fold, Notice, Segmented, Toggle, cx, toast, useAction, useConfirm } from '../components/ui';
 import { api, errorText } from '../lib/api';
 import { navigate } from '../lib/router';
@@ -59,7 +59,7 @@ export function AppSettings({ app, me, reload }: { app: AppDetailData; me: Me; r
   const save = async () => {
     setSaving(true);
     try {
-      const r = await api.patch<{ redeploy: boolean }>(`/api/apps/${app.slug}`, { name, config: c });
+      const r = await api.patch<{ redeploy: boolean }>(`/api/apps/${app.slug}`, { name, config: { ...c, publicUrl: normalizeUrl(c.publicUrl) } });
       toast.ok('저장했습니다');
       reload();
       if (r.redeploy && (await confirm({ title: '다시 배포할까요?', body: '저장소/브랜치/명령/런타임이 바뀌었습니다. 새 설정으로 배포해야 반영됩니다.', confirm: '지금 배포' }))) {

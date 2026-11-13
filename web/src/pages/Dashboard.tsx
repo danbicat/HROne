@@ -1,9 +1,9 @@
-import { ArrowDownUp, Boxes, Check, ChevronRight, CircleAlert, CircleCheck, Clock, Cpu, Database, ExternalLink, HardDrive, MemoryStick, Plus, Zap } from 'lucide-react';
+import { ArrowDownUp, Boxes, Check, ChevronRight, CircleAlert, CircleCheck, Clock, Cpu, Database, HardDrive, MemoryStick, Plus, Zap } from 'lucide-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Sparkline } from '../components/Charts';
 import type { Me } from '../components/Layout';
-import { AppMenu, AppPower, DeployBadge, PendingDeploy, TRIGGER, type Deploy } from '../components/shared';
-import { Badge, Button, Card, Empty, IconButton, List, Loading, Meter, PageHeader, Row, SectionHeader, StatusBadge, StatusDot, cx } from '../components/ui';
+import { AppMenu, AppPower, DeployBadge, DomainLink, PendingDeploy, TRIGGER, type Deploy } from '../components/shared';
+import { Badge, Button, Card, Empty, List, Loading, Meter, PageHeader, Row, SectionHeader, StatusBadge, StatusDot, cx } from '../components/ui';
 import { ago, bytes, rate, sha } from '../lib/format';
 import { Link, navigate, useTitle } from '../lib/router';
 import { useApi, useLive, type SystemNow, type UnitStatus } from '../lib/store';
@@ -306,7 +306,7 @@ export function Dashboard({ me }: { me: Me }) {
                   {data!.apps.map((a) => {
                     const st = live.units[`hrone-app-${a.slug}.service`] ?? a.status;
                     const state = a.deployedSha ? st?.state : 'not-deployed';
-                    const addr = a.publicUrl ? a.publicUrl.replace(/^https?:\/\//, '') : a.port ? `127.0.0.1:${a.port}` : '포트 없음';
+                    const local = a.port ? `127.0.0.1:${a.port}` : '포트 없음';
                     return (
                       <Row
                         key={a.slug}
@@ -319,12 +319,10 @@ export function Dashboard({ me }: { me: Me }) {
                           </span>
                         }
                         sub={
-                          <span className="flex items-center gap-2">
+                          <span className="flex min-w-0 items-center gap-2">
                             <StatusBadge state={state} />
-                            <span className="truncate">
-                              {addr}
-                              {st?.state === 'running' && ` · ${bytes(st.memory)}`}
-                            </span>
+                            {a.publicUrl ? <DomainLink url={a.publicUrl} className="md:max-w-[60%] md:shrink-0" /> : <span className="shrink-0">{local}</span>}
+                            {st?.state === 'running' && <span className="truncate max-md:hidden">{bytes(st.memory)}</span>}
                           </span>
                         }
                         trailing={
@@ -333,11 +331,6 @@ export function Dashboard({ me }: { me: Me }) {
                               <AppMenu slug={a.slug} name={a.name} state={st?.state} deployed={!!a.deployedSha} publicUrl={a.publicUrl || undefined} />
                             </span>
                             <span className="hidden items-center gap-1 md:flex">
-                              {a.publicUrl && (
-                                <IconButton title={a.publicUrl} onClick={() => window.open(a.publicUrl, '_blank', 'noopener')}>
-                                  <ExternalLink size={15} />
-                                </IconButton>
-                              )}
                               <AppPower slug={a.slug} state={st?.state} deployed={!!a.deployedSha} />
                             </span>
                           </span>
