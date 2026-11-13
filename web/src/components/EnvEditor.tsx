@@ -1,8 +1,8 @@
-import { ChevronDown, ChevronRight, Eye, EyeOff, Plus, Trash2 } from 'lucide-react';
+import { Eye, EyeOff, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../lib/api';
 import { useApi } from '../lib/store';
-import { Badge, Button, Card, ErrorBox, IconButton, Loading, Segmented, toast, Toggle, cx } from './ui';
+import { Badge, Button, Card, ErrorBox, Fold, IconButton, Loading, Segmented, toast, Toggle, cx } from './ui';
 
 interface EnvVar {
   key: string;
@@ -49,7 +49,6 @@ export function EnvEditor({ slug, running }: { slug: string; running: boolean })
   const [reveal, setReveal] = useState<Set<number>>(new Set());
   const [restart, setRestart] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [showSystem, setShowSystem] = useState(false);
 
   useEffect(() => {
     if (!data) return;
@@ -97,9 +96,10 @@ export function EnvEditor({ slug, running }: { slug: string; running: boolean })
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-9">
       <Card
         title="환경변수"
+        pad={false}
         actions={
           <Segmented
             value={mode}
@@ -112,13 +112,13 @@ export function EnvEditor({ slug, running }: { slug: string; running: boolean })
         }
       >
         {mode === 'table' ? (
-          <div className="space-y-2">
+          <div>
             {rows.map((r, i) => {
               const secret = SENSITIVE.test(r.key) && !reveal.has(i);
               return (
-                <div key={i} className="flex flex-col gap-2 sm:flex-row sm:items-start">
+                <div key={i} className={cx('flex flex-col gap-1 px-2.5 py-2 sm:flex-row sm:items-start sm:gap-2 sm:px-3', i > 0 && 'hairline-t')}>
                   <input
-                    className="input mono sm:w-[34%]"
+                    className="input mono bg-transparent font-medium sm:w-[34%]"
                     placeholder="KEY"
                     value={r.key}
                     spellCheck={false}
@@ -134,64 +134,70 @@ export function EnvEditor({ slug, running }: { slug: string; running: boolean })
                       }
                     }}
                   />
-                  <div className="relative flex-1">
-                    {r.value.includes('\n') ? (
-                      <textarea
-                        className={cx('input mono min-h-[70px] pr-10', secret && 'text-transparent [text-shadow:0_0_7px_var(--color-fg-2)]')}
-                        value={r.value}
-                        spellCheck={false}
-                        onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)))}
-                      />
-                    ) : (
-                      <input
-                        className="input mono pr-10"
-                        type={secret ? 'password' : 'text'}
-                        placeholder="값"
-                        value={r.value}
-                        spellCheck={false}
-                        autoComplete="off"
-                        onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)))}
-                      />
-                    )}
-                    {SENSITIVE.test(r.key) && (
-                      <button
-                        type="button"
-                        className="absolute right-2 top-2 rounded p-1 text-muted hover:text-fg cursor-pointer"
-                        onClick={() => {
-                          const n = new Set(reveal);
-                          n.has(i) ? n.delete(i) : n.add(i);
-                          setReveal(n);
-                        }}
-                        title={secret ? '보기' : '숨기기'}
-                      >
-                        {secret ? <Eye size={14} /> : <EyeOff size={14} />}
-                      </button>
-                    )}
+                  <div className="flex min-w-0 flex-1 items-start gap-1">
+                    <div className="relative min-w-0 flex-1">
+                      {r.value.includes('\n') ? (
+                        <textarea
+                          className={cx('input mono min-h-[70px] pr-10', secret && 'text-transparent [text-shadow:0_0_7px_var(--color-fg-2)]')}
+                          value={r.value}
+                          spellCheck={false}
+                          onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)))}
+                        />
+                      ) : (
+                        <input
+                          className="input mono pr-10"
+                          type={secret ? 'password' : 'text'}
+                          placeholder="값"
+                          value={r.value}
+                          spellCheck={false}
+                          autoComplete="off"
+                          onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)))}
+                        />
+                      )}
+                      {SENSITIVE.test(r.key) && (
+                        <button
+                          type="button"
+                          className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full text-muted hover:text-fg cursor-pointer"
+                          onClick={() => {
+                            const n = new Set(reveal);
+                            n.has(i) ? n.delete(i) : n.add(i);
+                            setReveal(n);
+                          }}
+                          title={secret ? '보기' : '숨기기'}
+                        >
+                          {secret ? <Eye size={15} /> : <EyeOff size={15} />}
+                        </button>
+                      )}
+                    </div>
+                    <IconButton title="삭제" className="mt-0.5 hover:text-bad" onClick={() => setRows(rows.length > 1 ? rows.filter((_, j) => j !== i) : [{ key: '', value: '' }])}>
+                      <Trash2 size={16} />
+                    </IconButton>
                   </div>
-                  <IconButton title="삭제" onClick={() => setRows(rows.length > 1 ? rows.filter((_, j) => j !== i) : [{ key: '', value: '' }])}>
-                    <Trash2 size={15} />
-                  </IconButton>
                 </div>
               );
             })}
-            <div className="flex items-center gap-2 pt-1">
-              <Button size="sm" icon={<Plus size={14} />} onClick={() => setRows([...rows, { key: '', value: '' }])}>
+            <div className="hairline-t flex flex-wrap items-center gap-x-3 gap-y-1 px-2 py-2 sm:px-3">
+              <Button size="sm" variant="plain" icon={<Plus size={15} />} onClick={() => setRows([...rows, { key: '', value: '' }])}>
                 추가
               </Button>
-              <span className="text-xs text-muted">KEY 칸에 .env 내용을 통째로 붙여넣어도 됩니다</span>
+              <span className="text-[13px] text-muted">KEY 칸에 .env 내용을 통째로 붙여넣어도 됩니다</span>
             </div>
           </div>
         ) : (
-          <textarea
-            className="input mono min-h-[320px] text-[13px] leading-relaxed"
-            value={raw}
-            onChange={(e) => setRaw(e.target.value)}
-            spellCheck={false}
-            placeholder={'# KEY=VALUE 형식\nDISCORD_TOKEN=...\nAPI_URL="https://example.com"'}
-          />
+          <div className="p-3 sm:p-4">
+            <textarea
+              className="input mono min-h-[320px] text-[13px] leading-relaxed"
+              value={raw}
+              onChange={(e) => setRaw(e.target.value)}
+              spellCheck={false}
+              placeholder={'# KEY=VALUE 형식\nDISCORD_TOKEN=...\nAPI_URL="https://example.com"'}
+            />
+          </div>
         )}
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
-          <Toggle checked={restart} onChange={setRestart} label="저장 후 앱 재시작" sub={running ? '환경변수는 재시작해야 반영됩니다' : '앱이 꺼져 있어 다음 시작 때 반영됩니다'} disabled={!running} />
+        <div className="hairline-t flex flex-wrap items-center justify-between gap-3 px-4 py-3.5 sm:px-5">
+          <div className="min-w-0 flex-1">
+            <Toggle checked={restart} onChange={setRestart} label="저장 후 앱 재시작" sub={running ? '환경변수는 재시작해야 반영됩니다' : '앱이 꺼져 있어 다음 시작 때 반영됩니다'} disabled={!running} />
+          </div>
           <Button variant="primary" onClick={save} loading={saving} disabled={!dirty}>
             저장
           </Button>
@@ -199,35 +205,26 @@ export function EnvEditor({ slug, running }: { slug: string; running: boolean })
       </Card>
 
       {data.linked.length > 0 && (
-        <Card title={<span className="flex items-center gap-2">연결된 DB 가 넣어 주는 변수 <Badge tone="purple">자동</Badge></span>}>
-          <div className="grid gap-1.5 text-[13px]">
-            {data.linked.map((v) => (
-              <div key={v.key} className="mono flex gap-3">
-                <span className="w-56 shrink-0 text-accent-2">{v.key}</span>
-                <span className="truncate text-muted">{SENSITIVE.test(v.key) ? '••••••••' : v.value}</span>
-              </div>
-            ))}
-          </div>
-          <div className="hint mt-3">같은 이름을 위 표에 직접 넣으면 그 값이 우선합니다.</div>
+        <Card title="연결된 DB 가 넣어 주는 변수" actions={<Badge tone="purple">자동</Badge>} pad={false} footer="같은 이름을 위 표에 직접 넣으면 그 값이 우선합니다.">
+          {data.linked.map((v, i) => (
+            <div key={v.key} className={cx('mono flex flex-col gap-0.5 px-4 py-2.5 text-[13px] sm:flex-row sm:gap-3 sm:px-5', i > 0 && 'hairline-t')}>
+              <span className="shrink-0 text-fg sm:w-56">{v.key}</span>
+              <span className="min-w-0 truncate text-muted">{SENSITIVE.test(v.key) ? '••••••••' : v.value}</span>
+            </div>
+          ))}
         </Card>
       )}
 
-      <div className="card">
-        <button type="button" className="flex w-full items-center gap-2 px-5 py-3.5 text-sm font-semibold cursor-pointer" onClick={() => setShowSystem(!showSystem)}>
-          {showSystem ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-          패널이 기본으로 넣는 변수 <span className="font-normal text-muted">({data.system.length}개 · PORT, HOST 등)</span>
-        </button>
-        {showSystem && (
-          <div className="grid gap-1.5 border-t border-line px-5 py-4 text-[13px]">
-            {data.system.map((v) => (
-              <div key={v.key} className="mono flex gap-3">
-                <span className="w-56 shrink-0 text-fg-2">{v.key}</span>
-                <span className="break-all text-muted">{v.value}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      <Fold title="패널이 기본으로 넣는 변수" summary={`${data.system.length}개 · PORT, HOST 등`}>
+        <div className="-mx-4 -mb-5 sm:-mx-5">
+          {data.system.map((v) => (
+            <div key={v.key} className="hairline-t mono flex flex-col gap-0.5 px-4 py-2.5 text-[13px] sm:flex-row sm:gap-3 sm:px-5">
+              <span className="shrink-0 text-fg-2 sm:w-56">{v.key}</span>
+              <span className="min-w-0 break-all text-muted">{v.value}</span>
+            </div>
+          ))}
+        </div>
+      </Fold>
     </div>
   );
 }

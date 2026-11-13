@@ -1,6 +1,5 @@
-import { KeyRound, LogIn } from 'lucide-react';
 import { useState } from 'react';
-import { Button, Field } from '../components/ui';
+import { Button } from '../components/ui';
 import { api, errorText } from '../lib/api';
 
 export function Login({ onLogin }: { onLogin: () => void }) {
@@ -30,44 +29,55 @@ export function Login({ onLogin }: { onLogin: () => void }) {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      
-      <form onSubmit={submit} className="card relative w-full max-w-sm space-y-5 p-7 shadow-2xl">
-        <div className="flex flex-col items-center gap-3 pb-1 text-center">
-          <img src="/favicon.svg" className="h-12 w-12" alt="" />
-          <div>
-            <h1 className="text-xl font-bold">HROne</h1>
-            <p className="mt-0.5 text-sm text-muted">서버 패널에 로그인</p>
-          </div>
+    <div className="flex min-h-dvh flex-col items-center justify-center px-5 py-10">
+      <form onSubmit={submit} className="w-full max-w-[360px]">
+        <div className="mb-8 flex flex-col items-center text-center">
+          <img src="/favicon.svg" className="h-16 w-16 rounded-[18px] shadow-pop" alt="" />
+          <h1 className="mt-5 text-[28px] font-semibold tracking-[-0.025em]">{needTotp ? '2단계 인증' : 'HROne에 로그인'}</h1>
+          <p className="mt-1.5 text-[15px] text-muted">{needTotp ? '인증 앱(Google Authenticator 등)의 6자리 코드를 넣으세요' : '서버 패널을 관리하려면 로그인하세요'}</p>
         </div>
         {!needTotp ? (
-          <>
-            <Field label="아이디">
-              <input className="input" value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" autoFocus />
-            </Field>
-            <Field label="비밀번호">
-              <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
-            </Field>
-          </>
-        ) : (
-          <Field label="OTP 코드" hint="인증 앱(Google Authenticator 등)의 6자리 코드">
+          // 아이디와 비밀번호를 한 칸으로 묶는다 (Apple 로그인 화면처럼)
+          <div className="overflow-hidden rounded-[14px] bg-surface shadow-card ring-1 ring-line focus-within:ring-2 focus-within:ring-accent">
             <input
-              className="input mono text-center text-lg tracking-[0.4em]"
-              inputMode="numeric"
-              maxLength={6}
-              value={totp}
-              onChange={(e) => setTotp(e.target.value.replace(/\D/g, ''))}
+              className="block h-[52px] w-full bg-transparent px-4 text-[17px] outline-none placeholder:text-muted/70"
+              placeholder="아이디"
+              aria-label="아이디"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              autoComplete="username"
+              autoCapitalize="none"
               autoFocus
-              autoComplete="one-time-code"
             />
-          </Field>
+            <div className="mx-4 h-px bg-line" />
+            <input
+              className="block h-[52px] w-full bg-transparent px-4 text-[17px] outline-none placeholder:text-muted/70"
+              type="password"
+              placeholder="비밀번호"
+              aria-label="비밀번호"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+            />
+          </div>
+        ) : (
+          <input
+            className="mono block h-[56px] w-full rounded-[14px] bg-surface text-center text-[24px] tracking-[0.5em] shadow-card outline-none ring-1 ring-line focus:ring-2 focus:ring-accent"
+            inputMode="numeric"
+            maxLength={6}
+            aria-label="OTP 코드"
+            value={totp}
+            onChange={(e) => setTotp(e.target.value.replace(/\D/g, ''))}
+            autoFocus
+            autoComplete="one-time-code"
+          />
         )}
-        {error && <div className="rounded-lg bg-bad/10 px-3 py-2 text-sm text-bad">{error}</div>}
-        <Button type="submit" variant="primary" size="lg" className="w-full" loading={busy} icon={needTotp ? <KeyRound size={17} /> : <LogIn size={17} />}>
+        {error && <div className="mt-3 text-center text-[14px] text-bad">{error}</div>}
+        <Button type="submit" variant="primary" size="lg" className="mt-6 w-full" loading={busy}>
           {needTotp ? '확인' : '로그인'}
         </Button>
-        <p className="text-center text-xs leading-relaxed text-muted">
-          비밀번호를 잊었다면 서버에서 <code className="text-fg-2">sudo hrone reset-password</code>
+        <p className="mt-8 text-center text-[13px] leading-relaxed text-muted">
+          비밀번호를 잊었다면 서버에서 <code className="rounded-[6px] bg-fill px-1.5 py-0.5 text-[12px] text-fg-2">sudo hrone reset-password</code>
         </p>
       </form>
     </div>

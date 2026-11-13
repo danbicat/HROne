@@ -104,7 +104,7 @@ export function AuditPanel() {
   }, []);
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted">누가 언제 무엇을 했는지 남습니다 (최근 2만 건).</p>
+      <p className="px-1 text-[15px] text-muted">누가 언제 무엇을 했는지 남습니다 (최근 2만 건).</p>
       {!rows ? (
         <Loading />
       ) : rows.length === 0 ? (
@@ -112,39 +112,41 @@ export function AuditPanel() {
           <Empty icon={<Activity size={22} />} title="기록이 없습니다" />
         </div>
       ) : (
-        <div className="card overflow-x-auto">
-          <table className="w-full min-w-[720px] text-sm">
-            <thead>
-              <tr className="border-b border-line text-left text-xs text-muted">
-                <th className="px-5 py-2.5 font-medium">시각</th>
-                <th className="px-3 py-2.5 font-medium">계정</th>
-                <th className="px-3 py-2.5 font-medium">작업</th>
-                <th className="px-3 py-2.5 font-medium">대상</th>
-                <th className="px-5 py-2.5 font-medium">내용</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {rows.map((r) => (
-                <tr key={r.id} className="align-top hover:bg-surface-2/50">
-                  <td className="mono whitespace-nowrap px-5 py-2 text-[12.5px] text-fg-2">{dateTime(r.ts)}</td>
-                  <td className="px-3 py-2">
-                    <div>{r.username}</div>
-                    {r.ip && <div className="mono text-xs text-muted">{r.ip}</div>}
-                  </td>
-                  <td className="px-3 py-2">
-                    <Badge tone={TONE(r.action)}>{LABEL[r.action] ?? r.action}</Badge>
-                  </td>
-                  <td className="mono px-3 py-2 text-[12.5px]">{r.target || '-'}</td>
-                  <td className="mono max-w-md truncate px-5 py-2 text-xs text-muted" title={r.detail}>
-                    {r.detail}
-                  </td>
+        <div className="card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-[14px]">
+              <thead>
+                <tr className="text-left text-[12.5px] font-semibold text-muted">
+                  <th className="py-2.5 pl-5 pr-3 font-semibold">시각</th>
+                  <th className="px-3 py-2.5 font-semibold">계정</th>
+                  <th className="px-3 py-2.5 font-semibold">작업</th>
+                  <th className="px-3 py-2.5 font-semibold">대상</th>
+                  <th className="py-2.5 pl-3 pr-5 font-semibold">내용</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.id} className="hairline-t align-top transition-colors hover:bg-fill/50">
+                    <td className="mono whitespace-nowrap py-3 pl-5 pr-3 text-[13px] text-fg-2">{dateTime(r.ts)}</td>
+                    <td className="px-3 py-3">
+                      <div className="font-medium">{r.username}</div>
+                      {r.ip && <div className="mono mt-0.5 text-[12.5px] text-muted">{r.ip}</div>}
+                    </td>
+                    <td className="px-3 py-3">
+                      <Badge tone={TONE(r.action)}>{LABEL[r.action] ?? r.action}</Badge>
+                    </td>
+                    <td className="mono px-3 py-3 text-[13px]">{r.target || '-'}</td>
+                    <td className="mono max-w-md truncate py-3 pl-3 pr-5 text-[12.5px] text-muted" title={r.detail}>
+                      {r.detail}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           {more && (
-            <div className="border-t border-line p-3 text-center">
-              <Button size="sm" variant="ghost" loading={busy} onClick={() => load(rows[rows.length - 1]!.id)}>
+            <div className="hairline-t p-2 text-center">
+              <Button size="sm" variant="plain" loading={busy} onClick={() => load(rows[rows.length - 1]!.id)}>
                 더 보기
               </Button>
             </div>

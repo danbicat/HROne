@@ -2,7 +2,7 @@ import { Archive, Download, RotateCcw, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { JobDialog, ReauthDialog } from '../components/Dialogs';
 import type { Me } from '../components/Layout';
-import { Badge, Empty, IconButton, Loading, Segmented, toast, useConfirm } from '../components/ui';
+import { Badge, Empty, IconButton, Loading, Segmented, cx, toast, useConfirm } from '../components/ui';
 import { api } from '../lib/api';
 import { bytes, dateTime } from '../lib/format';
 import { Link } from '../lib/router';
@@ -30,43 +30,46 @@ export function BackupList({ list, me, reload, showTarget }: { list: Backup[]; m
   return (
     <>
       <div className="card overflow-x-auto">
-        <table className="w-full min-w-[640px] text-sm">
+        <table className="w-full min-w-[680px] text-[14px]">
           <thead>
-            <tr className="border-b border-line text-left text-xs text-muted">
-              <th className="px-5 py-2.5 font-medium">시각</th>
-              {showTarget && <th className="px-3 py-2.5 font-medium">대상</th>}
-              <th className="px-3 py-2.5 font-medium">종류</th>
-              <th className="px-3 py-2.5 font-medium">크기</th>
-              <th className="px-3 py-2.5 font-medium">상태</th>
-              <th className="px-5 py-2.5" />
+            <tr className="text-left text-[12.5px] font-semibold text-muted">
+              <th className="py-2.5 pl-5 pr-3 font-semibold">시각</th>
+              {showTarget && <th className="px-3 py-2.5 font-semibold">대상</th>}
+              <th className="px-3 py-2.5 font-semibold">종류</th>
+              <th className="px-3 py-2.5 font-semibold">크기</th>
+              <th className="px-3 py-2.5 font-semibold">상태</th>
+              <th className="py-2.5 pl-3 pr-4" />
             </tr>
           </thead>
-          <tbody className="divide-y divide-line">
+          <tbody>
             {list.map((b) => (
-              <tr key={b.id} className="hover:bg-surface-2/50">
-                <td className="mono px-5 py-2.5 text-[13px]">{dateTime(b.created_at)}</td>
+              <tr key={b.id} className="hairline-t transition-colors hover:bg-fill/50">
+                <td className="mono whitespace-nowrap py-3 pl-5 pr-3 text-[13px] text-fg-2">{dateTime(b.created_at)}</td>
                 {showTarget && (
-                  <td className="px-3 py-2.5">
-                    <Link to={b.kind === 'app' ? `/apps/${b.target_slug}?tab=settings` : `/databases/${b.target_slug}?tab=backups`} className="hover:underline">
+                  <td className="whitespace-nowrap px-3 py-3">
+                    <Link to={b.kind === 'app' ? `/apps/${b.target_slug}?tab=settings` : `/databases/${b.target_slug}?tab=backups`} className="font-medium text-fg hover:text-accent-2">
                       {b.target_slug}
                     </Link>{' '}
-                    <span className="text-xs text-muted">{b.kind === 'app' ? '앱' : 'DB'}</span>
+                    <span className="text-[13px] text-muted">{b.kind === 'app' ? '앱' : 'DB'}</span>
                   </td>
                 )}
-                <td className="px-3 py-2.5">
+                <td className="px-3 py-3">
                   <Badge tone={b.trigger === 'terminate' ? 'yellow' : b.trigger === 'schedule' ? 'blue' : 'gray'}>{TRIG[b.trigger]}</Badge>
-                  {b.note && b.status !== 'failed' && <span className="ml-2 text-xs text-muted">{b.note}</span>}
+                  {b.note && b.status !== 'failed' && <span className="ml-2 text-[13px] text-muted">{b.note}</span>}
                 </td>
-                <td className="px-3 py-2.5 text-fg-2">{b.status === 'done' ? bytes(b.size) : '-'}</td>
-                <td className="px-3 py-2.5">
-                  {b.status === 'done' ? <Badge tone="green">완료</Badge> : b.status === 'running' ? <Badge tone="blue">진행 중</Badge> : <Badge tone="red">실패</Badge>}
-                  {b.status === 'failed' && b.note && <div className="mt-1 max-w-xs truncate text-xs text-bad" title={b.note}>{b.note}</div>}
+                <td className="whitespace-nowrap px-3 py-3 text-fg-2">{b.status === 'done' ? bytes(b.size) : '-'}</td>
+                <td className="px-3 py-3">
+                  <span className={cx('inline-flex items-center gap-1.5 whitespace-nowrap text-[13px] font-medium', b.status === 'failed' ? 'text-bad' : 'text-fg-2')}>
+                    <span className={cx('h-2 w-2 rounded-full', b.status === 'done' ? 'bg-ok-dot' : b.status === 'running' ? 'bg-accent pulse' : 'bg-bad-dot')} />
+                    {b.status === 'done' ? '완료' : b.status === 'running' ? '진행 중' : '실패'}
+                  </span>
+                  {b.status === 'failed' && b.note && <div className="mt-1 max-w-xs truncate text-[12.5px] text-bad" title={b.note}>{b.note}</div>}
                 </td>
-                <td className="px-5 py-2.5">
+                <td className="py-2 pl-3 pr-4">
                   <div className="flex items-center justify-end gap-0.5">
                     {b.status === 'done' && (
                       <>
-                        <a href={`/api/backups/${b.id}/download`} className="mr-1 inline-flex h-8 items-center gap-1.5 rounded-[9px] bg-fill px-2.5 text-[13px] font-medium text-fg hover:bg-fill-strong/50">
+                        <a href={`/api/backups/${b.id}/download`} className="mr-1 inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full bg-fill px-3 text-[13px] font-medium text-fg transition-colors hover:bg-fill-2">
                           <Download size={14} />
                           내려받기
                         </a>
@@ -129,8 +132,8 @@ export function BackupsPanel({ me }: { me: Me }) {
   const total = list.filter((b) => b.status === 'done').reduce((a, b) => a + b.size, 0);
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="max-w-2xl text-sm leading-relaxed text-muted">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-1">
+        <p className="max-w-2xl text-[15px] leading-relaxed text-muted">
           DB 는 매일 04:00 에 자동으로 백업하고 7개를 보관합니다. 앱 데이터(SQLite 등)는 앱 설정 → 백업에서 켤 수 있습니다. 합계 {bytes(total)}
         </p>
         <Segmented

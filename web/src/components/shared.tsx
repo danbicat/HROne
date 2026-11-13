@@ -1,9 +1,9 @@
-import { Check, Clock, Play, RotateCw, Square, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Check, Clock, Ellipsis, ExternalLink, Play, RotateCw, Square, X } from 'lucide-react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { api } from '../lib/api';
 import { delayText, sha } from '../lib/format';
 import type { RunState } from '../lib/store';
-import { Badge, Button, cx, toast, useAction, useConfirm } from './ui';
+import { Badge, Button, IconButton, Modal, cx, toast, useAction, useConfirm } from './ui';
 
 export type DeployStatus = 'pending' | 'scheduled' | 'queued' | 'running' | 'success' | 'failed' | 'rolled_back' | 'rejected' | 'cancelled' | 'superseded';
 
@@ -77,18 +77,22 @@ export function PendingDeploy({ d, compact }: { d: Deploy; compact?: boolean }) 
   return (
     <div className={cx('flex flex-col gap-3 sm:flex-row sm:items-center', !compact && 'py-1')}>
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2 text-sm">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[15px]">
           {d.appName && <span className="font-semibold">{d.appName}</span>}
           <DeployBadge status={d.status} />
-          <span className="mono text-xs text-muted">
+          <span className="mono text-[13px] text-muted">
             {sha(d.from_sha)} → {sha(d.to_sha)}
           </span>
-          {d.commits.length > 1 && <span className="text-xs text-muted">커밋 {d.commits.length}개</span>}
+          {d.commits.length > 1 && <span className="text-[13px] text-muted">커밋 {d.commits.length}개</span>}
         </div>
-        {head && <div className="mt-1 truncate text-sm text-fg-2">{head.message} <span className="text-muted">— {head.author}</span></div>}
+        {head && (
+          <div className="mt-1 truncate text-[14px] text-fg-2">
+            {head.message} <span className="text-muted">— {head.author}</span>
+          </div>
+        )}
         {d.status === 'scheduled' && d.scheduled_at && (
-          <div className="mt-1 flex items-center gap-1.5 text-xs text-info">
-            <Clock size={12} /> <Countdown at={d.scheduled_at} /> 뒤 자동 적용
+          <div className="mt-1 flex items-center gap-1.5 text-[13px] font-medium text-accent-2">
+            <Clock size={13} /> <Countdown at={d.scheduled_at} /> 뒤 자동 적용
           </div>
         )}
       </div>
@@ -138,6 +142,49 @@ export function AppPower({ slug, state, deployed, size = 'sm' }: { slug: string;
         재시작
       </Button>
     </div>
+  );
+}
+
+/** 폰 목록용: "···" 를 누르면 아래에서 동작 시트가 올라온다 (AppPower 와 같은 동작) */
+export function AppMenu({ slug, name, state, deployed, publicUrl }: { slug: string; name: string; state: RunState | null | undefined; deployed: boolean; publicUrl?: string }) {
+  const [open, setOpen] = useState(false);
+  const { run } = useAction();
+  const confirm = useConfirm();
+  if (!deployed && !publicUrl) return null;
+  const on = state === 'running' || state === 'starting' || state === 'restarting';
+  const act = (a: string, msg: string) => {
+    setOpen(false);
+    void run(a, () => api.post(`/api/apps/${slug}/action`, { action: a }), msg);
+  };
+  const item = (icon: ReactNode, label: string, onClick: () => void, tone?: 'ok') => (
+    <button type="button" onClick={onClick} className="row flex w-full items-center gap-3 pl-4 text-left transition-colors active:bg-fill cursor-pointer">
+      <span className={cx('flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[8px]', tone === 'ok' ? 'bg-ok-dot text-white' : 'bg-fill-2 text-fg-2')}>{icon}</span>
+      <span className="row-body flex min-h-[50px] flex-1 items-center pr-4 text-[16px]">{label}</span>
+    </button>
+  );
+  return (
+    <>
+      <IconButton title={`${name} 동작`} onClick={() => setOpen(true)} className="text-accent-2">
+        <Ellipsis size={20} />
+      </IconButton>
+      <Modal open={open} onClose={() => setOpen(false)} title={name} width={420}>
+        <div className="card -mx-1 overflow-hidden bg-surface-2">
+          {publicUrl &&
+            item(<ExternalLink size={16} />, '공개 주소 열기', () => {
+              setOpen(false);
+              window.open(publicUrl, '_blank', 'noopener');
+            })}
+          {deployed &&
+            (!on
+              ? item(<Play size={16} />, '시작', () => act('start', '시작했습니다'), 'ok')
+              : item(<Square size={15} />, '정지', async () => {
+                  setOpen(false);
+                  if (await confirm({ title: '앱 정지', body: '앱을 정지합니다. 자동 배포는 코드만 받아 두고 시작하지 않습니다.', confirm: '정지' })) act('stop', '정지했습니다');
+                }))}
+          {deployed && item(<RotateCw size={16} />, '재시작', () => act('restart', '재시작했습니다'))}
+        </div>
+      </Modal>
+    </>
   );
 }
 

@@ -26,7 +26,7 @@ export interface Series {
   format?: (v: number) => string;
 }
 
-/** 시간축 영역 차트 (마우스를 올리면 값 표시) */
+/** 시간축 영역 차트 (마우스를 올리면 값 표시). 얇은 선 + 옅은 면 + 희미한 눈금 */
 export function AreaChart({ times, series, max, height = 180, format }: { times: number[]; series: Series[]; max?: number; height?: number; format: (v: number) => string }) {
   const ref = useRef<SVGSVGElement>(null);
   const [hover, setHover] = useState<number | null>(null);
@@ -36,53 +36,74 @@ export function AreaChart({ times, series, max, height = 180, format }: { times:
   const m = useMemo(() => max ?? Math.max(1, ...series.flatMap((s) => s.values)) * 1.1, [max, series]);
   const x = (i: number) => (n <= 1 ? 0 : (i / (n - 1)) * W);
   const y = (v: number) => H - (Math.min(v, m) / m) * (H - 8) - 2;
-  if (n < 2) return <div className="flex items-center justify-center text-xs text-muted" style={{ height }}>데이터 모으는 중...</div>;
+  if (n < 2)
+    return (
+      <div className="flex items-center justify-center text-[13px] text-muted" style={{ height }}>
+        데이터 모으는 중...
+      </div>
+    );
   const ticks = [0, 0.5, 1].map((f) => m * f);
   return (
     <div className="relative">
-      <svg
-        ref={ref}
-        viewBox={`0 0 ${W} ${H}`}
-        preserveAspectRatio="none"
-        className="w-full overflow-visible"
-        style={{ height }}
-        onMouseMove={(e) => {
-          const r = ref.current!.getBoundingClientRect();
-          const i = Math.round(((e.clientX - r.left) / r.width) * (n - 1));
-          setHover(Math.max(0, Math.min(n - 1, i)));
-        }}
-        onMouseLeave={() => setHover(null)}
-      >
-        {ticks.map((t, i) => (
-          <line key={i} x1={0} x2={W} y1={y(t)} y2={y(t)} stroke="var(--color-line)" strokeDasharray={i === 0 ? '' : '3 4'} vectorEffect="non-scaling-stroke" />
-        ))}
-        {series.map((s) => {
-          const d = s.values.map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
-          return (
-            <g key={s.label}>
-              <path d={`${d} L${W},${H} L0,${H} Z`} fill={s.color} opacity={0.1} />
-              <path d={d} fill="none" stroke={s.color} strokeWidth={1.6} vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
-            </g>
-          );
-        })}
-        {hover !== null && <line x1={x(hover)} x2={x(hover)} y1={0} y2={H} stroke="var(--color-muted)" strokeWidth={1} vectorEffect="non-scaling-stroke" />}
-      </svg>
-      <div className="pointer-events-none absolute right-0 top-0 text-[10.5px] text-muted">{format(ticks[2]!)}</div>
-      <div className="mt-1.5 flex justify-between text-[10.5px] text-muted">
-        <span>{timeOnly(times[0]!)}</span>
-        <span>{timeOnly(times[n - 1]!)}</span>
-      </div>
-      {hover !== null && (
-        <div className="pointer-events-none absolute top-2 rounded-lg border border-line-2 bg-surface-2/95 px-2.5 py-1.5 text-xs shadow-lg" style={{ left: `min(calc(${(hover / (n - 1)) * 100}% + 8px), calc(100% - 140px))` }}>
-          <div className="mb-0.5 text-muted">{timeOnly(times[hover]!)}</div>
+      {series.length > 1 && (
+        <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px] text-muted">
           {series.map((s) => (
-            <div key={s.label} className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full" style={{ background: s.color }} />
-              {s.label} <b className="ml-auto pl-2">{(s.format ?? format)(s.values[hover] ?? 0)}</b>
-            </div>
+            <span key={s.label} className="inline-flex items-center gap-1.5">
+              <span className="h-[3px] w-3 rounded-full" style={{ background: s.color }} />
+              {s.label}
+            </span>
           ))}
         </div>
       )}
+      <div className="relative">
+        <svg
+          ref={ref}
+          viewBox={`0 0 ${W} ${H}`}
+          preserveAspectRatio="none"
+          className="w-full overflow-visible"
+          style={{ height }}
+          onMouseMove={(e) => {
+            const r = ref.current!.getBoundingClientRect();
+            const i = Math.round(((e.clientX - r.left) / r.width) * (n - 1));
+            setHover(Math.max(0, Math.min(n - 1, i)));
+          }}
+          onMouseLeave={() => setHover(null)}
+        >
+          {ticks.map((t, i) => (
+            <line key={i} x1={0} x2={W} y1={y(t)} y2={y(t)} stroke="var(--color-line)" strokeWidth={i === 0 ? 1 : 0.5} vectorEffect="non-scaling-stroke" />
+          ))}
+          {series.map((s) => {
+            const d = s.values.map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+            return (
+              <g key={s.label}>
+                <path d={`${d} L${W},${H} L0,${H} Z`} fill={s.color} opacity={0.08} />
+                <path d={d} fill="none" stroke={s.color} strokeWidth={1.5} vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
+              </g>
+            );
+          })}
+          {hover !== null && <line x1={x(hover)} x2={x(hover)} y1={0} y2={H} stroke="var(--color-line-2)" strokeWidth={1} vectorEffect="non-scaling-stroke" />}
+        </svg>
+        <div className="pointer-events-none absolute right-0 top-0 text-[12px] text-muted">{format(ticks[2]!)}</div>
+        {hover !== null && (
+          <div
+            className="chrome pointer-events-none absolute top-2 min-w-[120px] rounded-[12px] px-3 py-2 text-[12.5px] shadow-pop"
+            style={{ left: `min(calc(${(hover / (n - 1)) * 100}% + 10px), calc(100% - 150px))` }}
+          >
+            <div className="mb-1 text-muted">{timeOnly(times[hover]!)}</div>
+            {series.map((s) => (
+              <div key={s.label} className="flex items-center gap-1.5 whitespace-nowrap">
+                <span className="h-2 w-2 rounded-full" style={{ background: s.color }} />
+                <span className="text-fg-2">{s.label}</span>
+                <b className="ml-auto pl-3 font-semibold">{(s.format ?? format)(s.values[hover] ?? 0)}</b>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="mt-1.5 flex justify-between text-[12px] text-muted">
+        <span>{timeOnly(times[0]!)}</span>
+        <span>{timeOnly(times[n - 1]!)}</span>
+      </div>
     </div>
   );
 }

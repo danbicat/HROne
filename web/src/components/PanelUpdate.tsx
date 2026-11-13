@@ -1,9 +1,9 @@
-import { Download, RefreshCw, ShieldCheck } from 'lucide-react';
+import { Download, RefreshCw } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { ago, dateTime } from '../lib/format';
 import { useApi } from '../lib/store';
-import { Badge, Button, Card, KV, Notice, Segmented, Toggle, toast, useAction, useConfirm } from './ui';
+import { Badge, Button, Card, KV, Notice, Segmented, Toggle, cx, toast, useAction, useConfirm } from './ui';
 
 interface Status {
   version: string;
@@ -69,22 +69,19 @@ export function PanelUpdate() {
 
   const result = st.state.lastResult;
   return (
-    <div className="space-y-5">
+    <div className="space-y-9">
       <Card
-        title={
-          <span className="flex items-center gap-2">
-            <RefreshCw size={16} className="text-accent-2" /> HROne 버전
-          </span>
-        }
+        title="HROne 버전"
+        footer="서버 터미널에서는 sudo hrone update 로도 업데이트할 수 있습니다."
         actions={check && !check.available && !check.error ? <Badge tone="green">최신</Badge> : check?.available ? <Badge tone="blue">새 버전 있음</Badge> : null}
       >
-        <div className="space-y-4 text-sm">
+        <div className="space-y-5 text-[15px]">
           <KV
             items={[
               [
                 '지금 버전',
                 <span>
-                  v{st.version} · <span className="mono">{st.current.sha}</span> {st.current.message}
+                  v{st.version} · <span className="mono text-[14px]">{st.current.sha}</span> {st.current.message}
                   {st.current.date && <span className="text-muted"> · {dateTime(st.current.date)}</span>}
                 </span>,
               ],
@@ -131,35 +128,28 @@ export function PanelUpdate() {
               </Button>
             )}
           </div>
-          {check?.error && <div className="text-bad">{check.error}</div>}
+          {check?.error && <div className="text-[14px] text-bad">{check.error}</div>}
           {check?.commits && check.commits.length > 0 && (
-            <div className="space-y-1 rounded-xl bg-fill p-3">
-              {check.commits.map((c) => (
-                <div key={c.sha} className="flex gap-2 text-[13px]">
-                  <span className="mono text-accent-2">{c.sha}</span>
+            <div className="rounded-[12px] bg-fill/60 px-4">
+              {check.commits.map((c, i) => (
+                <div key={c.sha} className={cx('flex items-baseline gap-3 py-2.5 text-[14px]', i > 0 && 'hairline-t')}>
+                  <span className="mono shrink-0 text-[13px] text-accent-2">{c.sha}</span>
                   <span className="min-w-0 flex-1 truncate">{c.message}</span>
-                  <span className="shrink-0 text-xs text-muted">{c.when}</span>
+                  <span className="shrink-0 text-[13px] text-muted">{c.when}</span>
                 </div>
               ))}
             </div>
           )}
-          {log !== null && <pre className="mono max-h-72 overflow-auto rounded-xl border border-line bg-code p-3 text-[12px] text-fg-2">{log || '시작하는 중...'}</pre>}
-          <p className="text-xs text-muted">서버 터미널에서는 sudo hrone update 로도 업데이트할 수 있습니다.</p>
+          {log !== null && <pre className="console mono max-h-72 overflow-auto whitespace-pre-wrap break-all rounded-[14px] p-4 text-[12.5px] leading-[1.6]">{log || '시작하는 중...'}</pre>}
         </div>
       </Card>
 
-      <Card
-        title={
-          <span className="flex items-center gap-2">
-            <ShieldCheck size={16} className="text-accent-2" /> 자동 업데이트
-          </span>
-        }
-      >
-        <div className="space-y-4 text-sm">
+      <Card title="자동 업데이트">
+        <div className="space-y-5 text-[15px]">
           <Toggle checked={s.enabled} onChange={(v) => save({ enabled: v })} label="GitHub 에 새 버전이 올라오면 자동으로 업데이트" sub="dariring/HROne 저장소를 정해진 주기마다 확인합니다" />
           {s.enabled && (
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="text-fg-2">확인 주기</span>
+            <div className="hairline-t flex flex-wrap items-center justify-between gap-3 pt-4">
+              <span>확인 주기</span>
               <Segmented
                 value={String(s.intervalHours)}
                 onChange={(v) => save({ intervalHours: Number(v) })}
@@ -171,13 +161,13 @@ export function PanelUpdate() {
               />
             </div>
           )}
-          <ul className="list-disc space-y-1 pl-5 text-fg-2">
+          <ul className="hairline-t list-disc space-y-1.5 pl-5 pt-4 text-[14px] leading-relaxed text-fg-2">
             <li>업데이트해도 앱과 DB 는 꺼지지 않습니다. 각자 별도 서비스라 패널만 재시작됩니다.</li>
             <li>배포·백업이 진행 중이면 끊기지 않도록 끝난 뒤에 업데이트합니다.</li>
             <li>설정의 디스코드 웹후크가 있으면 시작·완료·실패를 알려 줍니다.</li>
           </ul>
           {s.enabled && (
-            <div className="text-xs text-muted">
+            <div className="text-[13px] text-muted">
               {st.state.lastCheckAt ? `마지막 확인 ${ago(st.state.lastCheckAt)} · ` : '아직 확인 전 (패널이 켜지고 몇 분 뒤 처음 확인합니다) · '}
               <span className={result === 'error' ? 'text-bad' : result === 'busy' ? 'text-warn' : ''}>{st.state.message || '-'}</span>
             </div>

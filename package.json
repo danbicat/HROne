@@ -13,7 +13,8 @@
     "dev:web": "vite --config web/vite.config.ts",
     "build": "vite build --config web/vite.config.ts",
     "typecheck": "tsc -p tsconfig.json && tsc -p web/tsconfig.json",
-    "test": "node --disable-warning=ExperimentalWarning --test server/test/*.test.ts"
+    "test": "node --disable-warning=ExperimentalWarning --test server/test/*.test.ts",
+    "dev:mock": "node --disable-warning=ExperimentalWarning web/dev/mock-api.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.3",
@@ -30,6 +31,7 @@
     "@types/ws": "^8.18.2",
     "@vitejs/plugin-react": "^6.1.2",
     "lucide-react": "^1.61.0",
+    "pretendard": "^1.3.9",
     "qrcode": "^1.5.4",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

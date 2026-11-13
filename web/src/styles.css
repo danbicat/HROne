@@ -1,30 +1,122 @@
 @import 'tailwindcss';
+@import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
 
+/*
+ * 색은 Apple 시스템 색을 따른다. 라이트가 기본이고, 다크는
+ * - 사용자가 다크를 고르면 (html[data-theme=dark])
+ * - 시스템을 따르는데 OS 가 다크면 (prefers-color-scheme: dark)
+ * 아래에서 같은 이름의 변수를 덮어쓴다.
+ */
 @theme {
-  --font-sans: -apple-system, BlinkMacSystemFont, 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', 'Segoe UI', sans-serif;
-  --font-mono: 'JetBrains Mono', 'D2Coding', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-sans: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', 'Segoe UI', sans-serif;
+  --font-mono: 'SF Mono', ui-monospace, 'JetBrains Mono', 'D2Coding', Menlo, Consolas, monospace;
 
-  /* 애플 다크 모드 시스템 색 (systemBackground / systemGray / systemBlue ...) */
-  --color-bg: #000000;
-  --color-surface: #1c1c1e;
-  --color-surface-2: #232325;
-  --color-surface-3: #2c2c2e;
-  --color-line: #303033;
-  --color-line-2: #3a3a3c;
-  --color-fg: #f5f5f7;
-  --color-fg-2: #c7c7cc;
-  --color-muted: #8e8e93;
-  --color-accent: #0a84ff;
-  --color-accent-2: #409cff;
-  --color-ok: #30d158;
-  --color-warn: #ff9f0a;
-  --color-bad: #ff453a;
-  --color-info: #64d2ff;
-  /* 입력칸·세그먼트 바탕 (tertiarySystemFill) 과 선택된 세그먼트 */
-  --color-fill: rgb(118 118 128 / 0.2);
-  --color-fill-strong: #636366;
-  /* 로그·콘솔 바탕 */
-  --color-code: #0b0b0c;
+  /* 바탕 (systemGroupedBackground) 과 그 위의 칸 */
+  --color-bg: #f5f5f7;
+  --color-surface: #ffffff;
+  --color-surface-2: #f5f5f7;
+  --color-surface-3: #ececf0;
+  /* 막대 · 사이드바 · 시트 같은 반투명 면 */
+  --color-chrome: rgb(255 255 255 / 0.72);
+  --color-sidebar: rgb(246 246 248 / 0.8);
+  --color-line: rgb(60 60 67 / 0.13);
+  --color-line-2: rgb(60 60 67 / 0.22);
+  --color-fg: #1d1d1f;
+  --color-fg-2: #424245;
+  --color-muted: #6e6e73;
+  --color-accent: #0071e3;
+  --color-accent-2: #0066cc;
+  --color-ok: #248a3d;
+  --color-warn: #c93400;
+  --color-bad: #d70015;
+  --color-info: #0071a4;
+  /* 스위치 · 상태 점처럼 글자가 아닌 곳에 쓰는 밝은 색 */
+  --color-ok-dot: #34c759;
+  --color-warn-dot: #ff9500;
+  --color-bad-dot: #ff3b30;
+  /* 입력칸 · 세그먼트 바탕 (tertiarySystemFill) 과 선택된 세그먼트 */
+  --color-fill: rgb(118 118 128 / 0.12);
+  --color-fill-2: rgb(118 118 128 / 0.2);
+  --color-seg: #ffffff;
+  --color-backdrop: rgb(0 0 0 / 0.32);
+  /* 로그 · 콘솔은 두 테마 모두 어둡게 */
+  --color-code: #1d1d1f;
+
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.04);
+  --shadow-pop: 0 12px 40px rgb(0 0 0 / 0.14), 0 2px 8px rgb(0 0 0 / 0.06);
+  --shadow-seg: 0 1px 3px rgb(0 0 0 / 0.12), 0 0 0 0.5px rgb(0 0 0 / 0.04);
+
+  --ease-ios: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@layer theme {
+  :root[data-theme='dark'] {
+    color-scheme: dark;
+    --color-bg: #000000;
+    --color-surface: #1c1c1e;
+    --color-surface-2: #242426;
+    --color-surface-3: #2c2c2e;
+    --color-chrome: rgb(22 22 23 / 0.72);
+    --color-sidebar: rgb(28 28 30 / 0.72);
+    --color-line: rgb(84 84 88 / 0.45);
+    --color-line-2: rgb(84 84 88 / 0.7);
+    --color-fg: #f5f5f7;
+    --color-fg-2: #d1d1d6;
+    --color-muted: #98989d;
+    --color-accent: #0a84ff;
+    --color-accent-2: #409cff;
+    --color-ok: #30d158;
+    --color-warn: #ff9f0a;
+    --color-bad: #ff453a;
+    --color-info: #64d2ff;
+    --color-ok-dot: #30d158;
+    --color-warn-dot: #ff9f0a;
+    --color-bad-dot: #ff453a;
+    --color-fill: rgb(118 118 128 / 0.24);
+    --color-fill-2: rgb(118 118 128 / 0.32);
+    --color-seg: #636366;
+    --color-backdrop: rgb(0 0 0 / 0.55);
+    --color-code: #121214;
+    --shadow-card: none;
+    --shadow-pop: 0 16px 48px rgb(0 0 0 / 0.6), 0 0 0 0.5px rgb(255 255 255 / 0.08);
+    --shadow-seg: 0 1px 3px rgb(0 0 0 / 0.3);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+      color-scheme: dark;
+      --color-bg: #000000;
+      --color-surface: #1c1c1e;
+      --color-surface-2: #242426;
+      --color-surface-3: #2c2c2e;
+      --color-chrome: rgb(22 22 23 / 0.72);
+      --color-sidebar: rgb(28 28 30 / 0.72);
+      --color-line: rgb(84 84 88 / 0.45);
+      --color-line-2: rgb(84 84 88 / 0.7);
+      --color-fg: #f5f5f7;
+      --color-fg-2: #d1d1d6;
+      --color-muted: #98989d;
+      --color-accent: #0a84ff;
+      --color-accent-2: #409cff;
+      --color-ok: #30d158;
+      --color-warn: #ff9f0a;
+      --color-bad: #ff453a;
+      --color-info: #64d2ff;
+      --color-ok-dot: #30d158;
+      --color-warn-dot: #ff9f0a;
+      --color-bad-dot: #ff453a;
+      --color-fill: rgb(118 118 128 / 0.24);
+      --color-fill-2: rgb(118 118 128 / 0.32);
+      --color-seg: #636366;
+      --color-backdrop: rgb(0 0 0 / 0.55);
+      --color-code: #121214;
+      --shadow-card: none;
+      --shadow-pop: 0 16px 48px rgb(0 0 0 / 0.6), 0 0 0 0.5px rgb(255 255 255 / 0.08);
+      --shadow-seg: 0 1px 3px rgb(0 0 0 / 0.3);
+    }
+  }
+  :root {
+    color-scheme: light;
+  }
 }
 
 @layer base {
@@ -34,7 +126,14 @@
     color: var(--color-fg);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
     font-feature-settings: 'tnum' 1;
+    letter-spacing: -0.01em;
+    /* 한글은 낱말 중간에서 줄을 바꾸지 않는다 (긴 주소는 그래도 넘어가게) */
+    word-break: keep-all;
+    overflow-wrap: break-word;
+    -webkit-tap-highlight-color: transparent;
   }
   /* 사용자 요청: 어디에도 기울임꼴을 쓰지 않는다 */
   i,
@@ -46,7 +145,7 @@
     font-style: normal;
   }
   ::selection {
-    background: color-mix(in oklab, var(--color-accent) 45%, transparent);
+    background: color-mix(in oklab, var(--color-accent) 30%, transparent);
   }
   * {
     scrollbar-width: thin;
@@ -58,67 +157,149 @@
   button {
     font: inherit;
     color: inherit;
+    letter-spacing: inherit;
   }
   code,
   kbd,
   pre {
     font-family: var(--font-mono);
+    letter-spacing: 0;
+  }
+  :focus-visible {
+    outline: 3px solid color-mix(in oklab, var(--color-accent) 45%, transparent);
+    outline-offset: 1px;
+  }
+  input[type='checkbox'],
+  input[type='radio'] {
+    accent-color: var(--color-accent);
   }
 }
 
 @layer components {
+  /* iOS 그룹 목록의 한 칸: 테두리 없이 바탕색으로만 구분 */
   .card {
     background: var(--color-surface);
-    border: 1px solid var(--color-line);
     border-radius: 14px;
+    box-shadow: var(--shadow-card);
   }
   .input {
     width: 100%;
+    min-height: 2.25rem;
     background: var(--color-fill);
-    border: 1px solid transparent;
-    border-radius: 9px;
+    border: 0;
+    border-radius: 10px;
     padding: 0.5rem 0.75rem;
-    font-size: 0.875rem;
+    font-size: 0.9375rem;
     outline: none;
-    transition: border-color 0.15s, box-shadow 0.15s;
+    transition: box-shadow 0.15s, background-color 0.15s;
   }
   .input:focus {
-    border-color: var(--color-accent);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-accent) 30%, transparent);
+    background: var(--color-surface);
+    box-shadow: 0 0 0 1px var(--color-accent), 0 0 0 4px color-mix(in oklab, var(--color-accent) 22%, transparent);
   }
   .input::placeholder {
-    color: color-mix(in oklab, var(--color-muted) 75%, transparent);
+    color: color-mix(in oklab, var(--color-muted) 80%, transparent);
+  }
+  select.input {
+    appearance: none;
+    padding-right: 2rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238e8e93' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 15 5 5 5-5'/%3E%3Cpath d='m7 9 5-5 5 5'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.7rem center;
   }
   select.input option {
-    background: var(--color-surface-3);
+    background: var(--color-surface);
+    color: var(--color-fg);
+  }
+  textarea.input {
+    line-height: 1.5;
   }
   .input:disabled {
-    opacity: 0.6;
+    opacity: 0.55;
   }
   .label {
     display: block;
-    font-size: 0.8rem;
+    font-size: 0.8125rem;
     font-weight: 600;
-    color: var(--color-fg-2);
-    margin-bottom: 0.375rem;
+    color: var(--color-fg);
+    margin-bottom: 0.4rem;
   }
   .hint {
-    font-size: 0.75rem;
+    font-size: 0.8125rem;
     color: var(--color-muted);
-    margin-top: 0.375rem;
+    margin-top: 0.4rem;
     line-height: 1.5;
   }
   .mono {
     font-family: var(--font-mono);
+    letter-spacing: 0;
   }
-  .tab-active {
-    color: var(--color-fg);
-    border-color: var(--color-accent);
+  /* 반투명 유리 (막대 · 사이드바 · 탭바) */
+  .chrome {
+    background: var(--color-chrome);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+  }
+  .hairline-b {
+    box-shadow: inset 0 -0.5px 0 var(--color-line-2);
+  }
+  .hairline-t {
+    box-shadow: inset 0 0.5px 0 var(--color-line-2);
+  }
+  /* 로그 · 콘솔: 라이트 테마에서도 어두운 바탕 + 밝은 글자 */
+  .console {
+    background: var(--color-code);
+    color-scheme: dark;
+    --color-fg: #f5f5f7;
+    --color-fg-2: #d1d1d6;
+    --color-muted: #8e8e93;
+    --color-line: rgb(84 84 88 / 0.45);
+    --color-line-2: rgb(84 84 88 / 0.7);
+    --color-surface: #1c1c1e;
+    --color-surface-2: #242426;
+    --color-surface-3: #2c2c2e;
+    --color-accent-2: #409cff;
+    --color-ok: #30d158;
+    --color-warn: #ff9f0a;
+    --color-bad: #ff453a;
+    --color-info: #64d2ff;
+    --color-fill: rgb(118 118 128 / 0.24);
+    color: var(--color-fg-2);
+  }
+  /* 다크 테마에서는 바탕과 거의 같아 보이니 얇은 테두리 빛으로 칸을 드러낸다 */
+  :root[data-theme='dark'] .console {
+    box-shadow: inset 0 0 0 0.5px rgb(255 255 255 / 0.12);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) .console {
+      box-shadow: inset 0 0 0 0.5px rgb(255 255 255 / 0.12);
+    }
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
   }
 }
 
+/* 목록 줄 사이 구분선: 아이콘 뒤 글자부터 시작 (iOS 처럼) */
+.row + .row > .row-body {
+  box-shadow: inset 0 0.5px 0 var(--color-line-2);
+}
+
 .log-line:hover {
-  background: color-mix(in oklab, var(--color-surface-3) 70%, transparent);
+  background: rgb(255 255 255 / 0.04);
+}
+
+/* 폰 하단 탭바 높이만큼 본문 아래를 비운다 */
+.pb-tabbar {
+  padding-bottom: calc(76px + env(safe-area-inset-bottom));
+}
+@media (min-width: 1024px) {
+  .pb-tabbar {
+    padding-bottom: 3rem;
+  }
 }
 
 @keyframes pulse-dot {
@@ -145,7 +326,7 @@
 
 @keyframes toast-in {
   from {
-    transform: translateY(8px);
+    transform: translateY(-12px) scale(0.96);
     opacity: 0;
   }
   to {
@@ -154,5 +335,42 @@
   }
 }
 .toast-in {
-  animation: toast-in 0.18s ease-out;
+  animation: toast-in 0.32s var(--ease-ios);
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+.fade-in {
+  animation: fade-in 0.2s ease-out;
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+@keyframes pop-in {
+  from {
+    transform: scale(0.96);
+    opacity: 0;
+  }
+}
+.sheet-in {
+  animation: sheet-up 0.42s var(--ease-ios);
+}
+@media (min-width: 640px) {
+  .sheet-in {
+    animation: pop-in 0.24s var(--ease-ios);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast-in,
+  .sheet-in,
+  .fade-in {
+    animation: none;
+  }
 }

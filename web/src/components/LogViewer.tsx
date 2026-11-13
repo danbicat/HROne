@@ -1,4 +1,4 @@
-import { ArrowDown, Clock, Download, Eraser, Pause, Play, Search, WrapText } from 'lucide-react';
+import { ArrowDown, Clock, Download, Eraser, ListFilter, Pause, Play, Search, WrapText } from 'lucide-react';
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { parseAnsi, stripAnsi } from '../lib/ansi';
@@ -97,27 +97,28 @@ export function LogViewer({ kind, slug, height = 'calc(100vh - 300px)' }: { kind
   }, [shown, follow]);
 
   return (
-    <div className="card flex flex-col overflow-hidden">
-      <div className="flex flex-wrap items-center gap-2 border-b border-line px-3 py-2">
-        <div className="relative min-w-[160px] flex-1">
-          <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
-          <input className="input h-8 pl-8 text-[13px]" placeholder="로그 검색" value={filter} onChange={(e) => setFilter(e.target.value)} />
+    <div className="flex min-w-0 flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-[180px] flex-1">
+          <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+          <input className="input h-9 rounded-full pl-9 text-[14px]" placeholder="로그 검색" value={filter} onChange={(e) => setFilter(e.target.value)} />
         </div>
-        <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted select-none">
-          <input type="checkbox" checked={systemLines} onChange={(e) => setSystemLines(e.target.checked)} className="accent-[var(--color-accent)]" />
-          시스템 메시지
-        </label>
-        <div className="flex items-center">
-          <IconButton title={paused ? '이어서 받기' : '일시정지'} onClick={() => setPaused(!paused)} className={paused ? 'text-warn' : ''}>
-            {paused ? <Play size={15} /> : <Pause size={15} />}
+        <div className="flex items-center gap-0.5 rounded-full bg-fill p-0.5">
+          <IconButton title="시스템 메시지" aria-pressed={systemLines} onClick={() => setSystemLines(!systemLines)} className={cx(systemLines && 'bg-seg text-fg shadow-seg hover:bg-seg')}>
+            <ListFilter size={15} />
           </IconButton>
-          <IconButton title="시간 표시" onClick={() => setShowTime(!showTime)} className={showTime ? 'text-fg' : ''}>
+          <IconButton title="시간 표시" aria-pressed={showTime} onClick={() => setShowTime(!showTime)} className={cx(showTime && 'bg-seg text-fg shadow-seg hover:bg-seg')}>
             <Clock size={15} />
           </IconButton>
-          <IconButton title="자동 줄바꿈" onClick={() => setWrap(!wrap)} className={wrap ? 'text-fg' : ''}>
+          <IconButton title="자동 줄바꿈" aria-pressed={wrap} onClick={() => setWrap(!wrap)} className={cx(wrap && 'bg-seg text-fg shadow-seg hover:bg-seg')}>
             <WrapText size={15} />
           </IconButton>
-          <a href={`${base}/logs/download`} title="전체 로그 내려받기" className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-surface-3 hover:text-fg">
+        </div>
+        <div className="flex items-center">
+          <IconButton title={paused ? '이어서 받기' : '일시정지'} onClick={() => setPaused(!paused)} className={paused ? 'text-warn hover:text-warn' : ''}>
+            {paused ? <Play size={15} /> : <Pause size={15} />}
+          </IconButton>
+          <a href={`${base}/logs/download`} title="전체 로그 내려받기" aria-label="전체 로그 내려받기" className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted transition-colors hover:bg-fill hover:text-fg">
             <Download size={15} />
           </a>
           <IconButton
@@ -132,7 +133,7 @@ export function LogViewer({ kind, slug, height = 'calc(100vh - 300px)' }: { kind
           </IconButton>
         </div>
       </div>
-      <div className="relative">
+      <div className="console relative overflow-hidden rounded-[14px]">
         <div
           ref={box}
           onScroll={(e) => {
@@ -140,7 +141,7 @@ export function LogViewer({ kind, slug, height = 'calc(100vh - 300px)' }: { kind
             const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
             if (atBottom !== follow) setFollow(atBottom);
           }}
-          className={cx('mono overflow-auto bg-code py-2 text-[12.5px] leading-[1.6]', wrap ? 'whitespace-pre-wrap break-all' : 'whitespace-pre')}
+          className={cx('mono overflow-auto py-3 text-[12.5px] leading-[1.6]', wrap ? 'whitespace-pre-wrap break-all' : 'whitespace-pre')}
           style={{ height, minHeight: 280 }}
         >
           {!loaded ? (
@@ -155,12 +156,12 @@ export function LogViewer({ kind, slug, height = 'calc(100vh - 300px)' }: { kind
           <button
             type="button"
             onClick={() => setFollow(true)}
-            className="absolute bottom-3 right-4 flex items-center gap-1 rounded-full border border-line-2 bg-surface-2 px-3 py-1.5 text-xs shadow-lg hover:bg-surface-3 cursor-pointer"
+            className="toast-in absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-accent px-4 py-2 text-[13px] font-medium text-white shadow-pop transition-[filter] hover:brightness-110 cursor-pointer"
           >
-            <ArrowDown size={13} /> 최신으로
+            <ArrowDown size={14} strokeWidth={2.4} /> 최신으로
           </button>
         )}
-        <div className="absolute right-3 top-2 flex items-center gap-1.5 text-[11px] text-muted">
+        <div className="pointer-events-none absolute right-3 top-2.5 flex items-center gap-1.5 rounded-full bg-surface/80 px-2.5 py-1 text-[12px] text-muted">
           <span className={cx('h-1.5 w-1.5 rounded-full', paused ? 'bg-warn' : up ? 'bg-ok pulse' : 'bg-bad')} />
           {paused ? `일시정지 (${pausedBuf.current.length}줄 대기)` : up ? '실시간' : '연결 끊김'}
         </div>
@@ -194,7 +195,7 @@ export function DeployLog({ id, running, height = 420 }: { id: number; running: 
         const el = e.currentTarget;
         setFollow(el.scrollHeight - el.scrollTop - el.clientHeight < 40);
       }}
-      className="mono overflow-auto rounded-xl border border-line bg-code p-3 text-[12.5px] leading-[1.6] whitespace-pre-wrap break-all"
+      className="console mono overflow-auto rounded-[14px] p-4 text-[12.5px] leading-[1.6] whitespace-pre-wrap break-all"
       style={{ height }}
     >
       {text.map((l, i) => {

@@ -1,18 +1,20 @@
-import { Boxes, Database, House, LogOut, Menu, Server, Settings, ShieldCheck, X } from 'lucide-react';
-import { useEffect, useState, type ReactNode } from 'react';
+import { Boxes, Database, House, LogOut, Search, Server, Settings, ShieldCheck, WifiOff } from 'lucide-react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { api } from '../lib/api';
 import { Link, useLocation } from '../lib/router';
 import { useApi, useSocketUp } from '../lib/store';
-import { cx } from './ui';
+import { CommandPalette } from './CommandPalette';
+import { BarSlot, SearchOpen, cx } from './ui';
 
 // 자주 쓰는 메뉴만 위에 두고, 서버 관리는 아래로 뺀다.
 // 예전 메뉴(백업, 활동 기록)는 서버 / 설정 안의 탭이 됐다.
-const NAV = [
+type NavItem = { to: string; label: string; short?: string; icon: typeof House; exact?: boolean; also?: string[] };
+const NAV: NavItem[] = [
   { to: '/', label: '홈', icon: House, exact: true },
   { to: '/apps', label: '앱', icon: Boxes },
-  { to: '/databases', label: '데이터베이스', icon: Database },
+  { to: '/databases', label: '데이터베이스', short: 'DB', icon: Database },
 ];
-const NAV_MANAGE = [
+const NAV_MANAGE: NavItem[] = [
   { to: '/system', label: '서버', icon: Server, also: ['/backups'] },
   { to: '/settings', label: '설정', icon: Settings, also: ['/audit'] },
 ];
@@ -22,111 +24,158 @@ export interface Me {
   totpEnabled: boolean;
 }
 
+const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
+
 export function Layout({ me, children }: { me: Me; children: ReactNode }) {
   const { path } = useLocation();
-  const [open, setOpen] = useState(false);
   const up = useSocketUp();
   const { data: open_ } = useApi<{ status: string }[]>('/api/deploys/open', { refreshOn: ['deploys'] });
   const pending = (open_ ?? []).filter((d) => d.status === 'pending').length;
   const { data: info } = useApi<{ hostname: string; virtualization: string }>('/api/system/info');
+  const [bar, setBar] = useState<HTMLElement | null>(null);
+  const [search, setSearch] = useState(false);
+  const openSearch = useCallback(() => setSearch(true), []);
 
-  useEffect(() => setOpen(false), [path]);
+  // ⌘K / Ctrl+K 로 어디서든 검색
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSearch((s) => !s);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
-  const item = (n: { to: string; label: string; icon: typeof House; exact?: boolean; also?: string[] }) => {
-    const active = n.exact ? path === n.to : [n.to, ...(n.also ?? [])].some((p) => path === p || path.startsWith(p + '/'));
+  const isActive = (n: NavItem) => (n.exact ? path === n.to : [n.to, ...(n.also ?? [])].some((p) => path === p || path.startsWith(p + '/')));
+
+  const sideItem = (n: NavItem) => {
+    const active = isActive(n);
     const Icon = n.icon;
     return (
       <Link
         key={n.to}
         to={n.to}
+        aria-current={active ? 'page' : undefined}
         className={cx(
-          'flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[15px] font-medium transition-colors',
-          active ? 'bg-surface-3 text-fg' : 'text-muted hover:bg-surface-2 hover:text-fg',
+          'flex items-center gap-2.5 rounded-[8px] px-2.5 py-[7px] text-[14px] transition-colors',
+          active ? 'bg-accent font-medium text-white' : 'text-fg hover:bg-fill',
         )}
       >
-        <Icon size={18} className={active ? 'text-accent-2' : ''} />
+        <Icon size={17} strokeWidth={2} className={active ? 'text-white' : 'text-accent-2'} />
         {n.label}
         {n.to === '/apps' && pending > 0 && (
-          <span className="ml-auto rounded-full bg-warn px-1.5 text-[11px] font-bold text-black" title="승인을 기다리는 배포">
+          <span
+            className={cx('ml-auto min-w-5 rounded-full px-1.5 text-center text-[11px] font-semibold leading-5', active ? 'bg-white/25 text-white' : 'bg-warn-dot text-white')}
+            title="승인을 기다리는 배포"
+          >
             {pending}
           </span>
         )}
       </Link>
     );
   };
-  const nav = (
-    <nav className="flex flex-col gap-0.5">
-      {NAV.map(item)}
-      <div className="mx-3 mb-1 mt-5 text-[11px] font-semibold tracking-wide text-muted/70">관리</div>
-      {NAV_MANAGE.map(item)}
-    </nav>
-  );
 
-  const side = (
-    <div className="flex h-full flex-col gap-6 p-4">
-      <Link to="/" className="flex items-center gap-2.5 px-2 pt-1">
-        <img src="/favicon.svg" className="h-8 w-8" alt="" />
-        <div>
-          <div className="text-[17px] font-bold tracking-tight">HROne</div>
-          <div className="-mt-0.5 max-w-[150px] truncate text-[11px] text-muted">{info?.hostname ?? ''}</div>
-        </div>
+  const tabItem = (n: NavItem) => {
+    const active = isActive(n);
+    const Icon = n.icon;
+    return (
+      <Link
+        key={n.to}
+        to={n.to}
+        aria-current={active ? 'page' : undefined}
+        className={cx('relative flex flex-1 flex-col items-center gap-[3px] pb-1 pt-[7px] text-[10.5px] font-medium transition-colors', active ? 'text-accent' : 'text-muted')}
+      >
+        <span className="relative">
+          <Icon size={23} strokeWidth={active ? 2.2 : 1.8} />
+          {n.to === '/apps' && pending > 0 && (
+            <span className="absolute -right-2.5 -top-1 min-w-[17px] rounded-full bg-bad-dot px-1 text-center text-[10px] font-semibold leading-[17px] text-white">{pending}</span>
+          )}
+        </span>
+        {n.short ?? n.label}
       </Link>
-      {nav}
-      <div className="mt-auto space-y-3">
-        <div className="flex items-center justify-between gap-2 px-1">
-          <div className="flex min-w-0 items-center gap-2 text-sm">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/20 text-xs font-bold text-accent-2">{me.username.slice(0, 1).toUpperCase()}</div>
-            <div className="min-w-0">
-              <div className="truncate font-medium">{me.username}</div>
-              <div className="flex items-center gap-1 text-[11px] text-muted">
-                <span className={cx('h-1.5 w-1.5 rounded-full', up ? 'bg-ok' : 'bg-bad pulse')} />
-                {up ? '연결됨' : '재연결 중'}
-                {me.totpEnabled && <ShieldCheck size={11} className="ml-1 text-ok" />}
-              </div>
-            </div>
-          </div>
-          <button
-            type="button"
-            title="로그아웃"
-            className="rounded-lg p-1.5 text-muted hover:bg-surface-3 hover:text-fg cursor-pointer"
-            onClick={async () => {
-              await api.post('/api/auth/logout');
-              location.href = '/';
-            }}
-          >
-            <LogOut size={16} />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+    );
+  };
 
   return (
-    <div className="min-h-screen">
-      <aside className="fixed inset-y-0 left-0 hidden w-60 border-r border-line bg-surface lg:block">{side}</aside>
-      <div className="sticky top-0 z-30 flex items-center justify-between border-b border-line bg-surface/95 px-4 py-2.5 backdrop-blur lg:hidden">
-        <Link to="/" className="flex items-center gap-2 font-bold">
-          <img src="/favicon.svg" className="h-7 w-7" alt="" />
-          HROne
-        </Link>
-        <button type="button" className="rounded-lg p-2 hover:bg-surface-3 cursor-pointer" onClick={() => setOpen(true)} aria-label="메뉴">
-          <Menu size={20} />
-        </button>
-      </div>
-      {open && (
-        <div className="fixed inset-0 z-40 lg:hidden">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 w-64 border-r border-line bg-surface">
-            <button type="button" className="absolute right-3 top-3 rounded-lg p-1.5 hover:bg-surface-3 cursor-pointer" onClick={() => setOpen(false)} aria-label="닫기">
-              <X size={18} />
-            </button>
-            {side}
+    <SearchOpen.Provider value={openSearch}>
+      <BarSlot.Provider value={bar}>
+        <div className="min-h-dvh">
+          {/* 데스크톱: macOS 설정 앱 같은 반투명 사이드바 */}
+          <aside className="fixed inset-y-0 left-0 z-40 hidden w-[248px] flex-col border-r border-line bg-sidebar backdrop-blur-2xl backdrop-saturate-150 lg:flex">
+            <Link to="/" className="flex items-center gap-2.5 px-5 pb-3 pt-5">
+              <img src="/favicon.svg" className="h-8 w-8" alt="" />
+              <div className="min-w-0">
+                <div className="text-[15px] font-semibold leading-tight tracking-[-0.01em]">HROne</div>
+                <div className="truncate text-[12px] text-muted">{info?.hostname ?? ''}</div>
+              </div>
+            </Link>
+            <div className="px-3 pb-3">
+              <button
+                type="button"
+                onClick={openSearch}
+                className="flex h-8 w-full items-center gap-2 rounded-[8px] bg-fill px-2.5 text-[13px] text-muted transition-colors hover:bg-fill-2 cursor-pointer"
+              >
+                <Search size={14} />
+                검색
+                <kbd className="ml-auto font-sans text-[12px] text-muted/80">{isMac ? '⌘K' : 'Ctrl K'}</kbd>
+              </button>
+            </div>
+            <nav className="flex flex-col gap-0.5 px-3">
+              {NAV.map(sideItem)}
+              <div className="px-2.5 pb-1 pt-5 text-[12px] font-semibold text-muted">관리</div>
+              {NAV_MANAGE.map(sideItem)}
+            </nav>
+            <div className="mt-auto flex items-center gap-2.5 px-4 py-4">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-fill-2 text-[13px] font-semibold text-fg-2">{me.username.slice(0, 1).toUpperCase()}</div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1 truncate text-[13px] font-medium">
+                  {me.username}
+                  {me.totpEnabled && <ShieldCheck size={12} className="shrink-0 text-ok" aria-label="2단계 인증 켜짐" />}
+                </div>
+                <div className="flex items-center gap-1.5 text-[12px] text-muted">
+                  <span className={cx('h-1.5 w-1.5 rounded-full', up ? 'bg-ok-dot' : 'bg-bad-dot pulse')} />
+                  {up ? '연결됨' : '재연결 중'}
+                </div>
+              </div>
+              <button
+                type="button"
+                title="로그아웃"
+                aria-label="로그아웃"
+                className="flex h-8 w-8 items-center justify-center rounded-full text-muted transition-colors hover:bg-fill hover:text-fg cursor-pointer"
+                onClick={async () => {
+                  await api.post('/api/auth/logout');
+                  location.href = '/';
+                }}
+              >
+                <LogOut size={16} />
+              </button>
+            </div>
           </aside>
+
+          <main className="lg:pl-[248px]">
+            {/* 각 화면의 PageHeader 가 여기에 위 막대를 그린다 */}
+            <div ref={setBar} className="sticky top-0 z-30 pt-[env(safe-area-inset-top)]" />
+            {!up && (
+              <div className="fade-in mx-auto mt-2 flex max-w-[1180px] px-4 sm:px-6 lg:px-10">
+                <div className="flex items-center gap-2 rounded-full bg-warn/12 px-3 py-1.5 text-[13px] font-medium text-warn">
+                  <WifiOff size={14} />
+                  서버와 다시 연결하는 중입니다
+                </div>
+              </div>
+            )}
+            <div className="pb-tabbar mx-auto max-w-[1180px] px-4 sm:px-6 lg:px-10">{children}</div>
+          </main>
+
+          {/* 폰 · 태블릿: iOS 탭바 */}
+          <nav className="chrome hairline-t fixed inset-x-0 bottom-0 z-40 flex pb-[env(safe-area-inset-bottom)] lg:hidden">
+            {[...NAV, ...NAV_MANAGE].map(tabItem)}
+          </nav>
+
+          <CommandPalette open={search} onClose={() => setSearch(false)} />
         </div>
-      )}
-      <main className="lg:pl-60">
-        <div className="mx-auto max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</div>
-      </main>
-    </div>
+      </BarSlot.Provider>
+    </SearchOpen.Provider>
   );
 }

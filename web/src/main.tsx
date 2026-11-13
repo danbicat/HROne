@@ -13,6 +13,7 @@ import { DbDetail } from './pages/DbDetail';
 import { Login } from './pages/Login';
 import { Settings } from './pages/Settings';
 import { System } from './pages/System';
+import './lib/theme';
 import './styles.css';
 
 const ROUTES: [string, (p: Record<string, string>, me: Me) => React.ReactNode][] = [

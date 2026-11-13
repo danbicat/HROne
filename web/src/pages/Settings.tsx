@@ -1,12 +1,13 @@
 import QRCode from 'qrcode';
-import { Bell, GitBranch, KeyRound, Monitor, Save, Shield, ShieldCheck, Trash2, UserPlus, Users } from 'lucide-react';
+import { LogOut, Save, ShieldCheck, Trash2, UserPlus } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { ReauthDialog } from '../components/Dialogs';
 import { PanelUpdate } from '../components/PanelUpdate';
 import type { Me } from '../components/Layout';
-import { Badge, Button, Card, CopyField, Field, IconButton, Modal, Notice, PageHeader, Segmented, Tabs, Toggle, toast, useAction } from '../components/ui';
+import { Badge, Button, Card, CopyField, Field, IconButton, IconTile, List, Modal, Notice, PageHeader, Row, SectionHeader, Segmented, Tabs, Toggle, cx, toast, useAction } from '../components/ui';
 import { api, errorText } from '../lib/api';
 import { ago } from '../lib/format';
+import { setTheme, useTheme, type ThemePref } from '../lib/theme';
 import { setQuery, useLocation, useTitle } from '../lib/router';
 import { useApi } from '../lib/store';
 import { AuditPanel } from './Audit';
@@ -20,19 +21,25 @@ interface SettingsData {
   discordSet: boolean;
 }
 
-function Section({ icon, title, children, actions }: { icon: ReactNode; title: string; children: ReactNode; actions?: ReactNode }) {
+/** 설정 칸: 제목은 칸 위에, 내용은 흰 칸 안에 (iOS 설정처럼). 제목에 아이콘은 넣지 않는다 */
+function Section({ title, children, actions, footer }: { title: ReactNode; children: ReactNode; actions?: ReactNode; footer?: ReactNode }) {
   return (
-    <Card
-      title={
-        <span className="flex items-center gap-2">
-          <span className="text-accent-2">{icon}</span>
-          {title}
-        </span>
-      }
-      actions={actions}
-    >
-      <div className="space-y-4">{children}</div>
+    <Card title={title} actions={actions} footer={footer}>
+      <div className="space-y-5">{children}</div>
     </Card>
+  );
+}
+
+/** 칸 안에서 스위치를 한 줄씩 (구분선은 두 번째 줄부터) */
+function ToggleRows({ children }: { children: ReactNode[] }) {
+  return (
+    <div className="-my-2">
+      {children.map((c, i) => (
+        <div key={i} className={cx('py-3', i > 0 && 'hairline-t')}>
+          {c}
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -44,7 +51,7 @@ export function Settings({ me }: { me: Me }) {
   const tab = (query.get('tab') as SettingsTab) || 'account';
   const { data, reload } = useApi<SettingsData>('/api/settings');
   return (
-    <div className="mx-auto max-w-4xl">
+    <div className="mx-auto max-w-3xl">
       <PageHeader title="설정" />
       <Tabs
         value={tab}
@@ -58,13 +65,15 @@ export function Settings({ me }: { me: Me }) {
         ]}
       />
       {tab === 'account' && (
-        <div className="space-y-5">
+        <div className="space-y-9">
           <Account me={me} />
+          <Appearance />
           <UsersCard me={me} />
+          <LogoutRow />
         </div>
       )}
       {tab === 'connect' && data && (
-        <div className="space-y-5">
+        <div className="space-y-9">
           <GitHub s={data} reload={reload} />
           <Notifications s={data} reload={reload} />
         </div>
@@ -85,7 +94,7 @@ function PanelAccess({ s, reload }: { s: SettingsData; reload: () => void }) {
   }, [s]);
   const { busy, run } = useAction();
   return (
-    <Section icon={<Shield size={16} />} title="패널 접속">
+    <Section title="패널 접속">
       <Field label="접속 허용" hint="GitHub 웹후크 주소(/api/hooks/...)는 이 제한과 상관없이 서명으로만 확인합니다">
         <Segmented
           value={p.access}
@@ -98,7 +107,7 @@ function PanelAccess({ s, reload }: { s: SettingsData; reload: () => void }) {
         />
       </Field>
       {p.access === 'private' && (
-        <div className="text-sm text-muted">허용: 127.0.0.1, Tailscale (100.64.0.0/10, fd7a::/48), 10/8, 172.16/12, 192.168/16. cloudflared 를 거쳐 들어온 외부 요청은 실제 IP 로 판단해서 막습니다.</div>
+        <div className="text-[14px] leading-relaxed text-muted">허용: 127.0.0.1, Tailscale (100.64.0.0/10, fd7a::/48), 10/8, 172.16/12, 192.168/16. cloudflared 를 거쳐 들어온 외부 요청은 실제 IP 로 판단해서 막습니다.</div>
       )}
       {p.access === 'all' && <Notice tone="red">공인 IP 에서도 로그인 화면이 열립니다. OTP 를 꼭 켜고, 가능하면 Cloudflare Access 등으로 한 겹 더 막으세요.</Notice>}
       {p.access === 'custom' && (
@@ -106,7 +115,7 @@ function PanelAccess({ s, reload }: { s: SettingsData; reload: () => void }) {
           <textarea className="input mono min-h-[90px]" value={cidrs} onChange={(e) => setCidrs(e.target.value)} placeholder={'100.64.0.0/10\n203.0.113.7'} />
         </Field>
       )}
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="hairline-t grid gap-5 pt-5 sm:grid-cols-2">
         <Field label="패널 포트" hint="바꾸면 패널이 재시작됩니다">
           <input className="input mono" inputMode="numeric" value={p.port} onChange={(e) => setP({ ...p, port: Number(e.target.value.replace(/\D/g, '')) || 7700 })} />
         </Field>
@@ -142,12 +151,12 @@ function GitHub({ s, reload }: { s: SettingsData; reload: () => void }) {
   const [token, setToken] = useState('');
   const { busy, run } = useAction();
   return (
-    <Section icon={<GitBranch size={16} />} title="GitHub" actions={s.githubTokenSet ? <Badge tone="green">토큰 설정됨</Badge> : <Badge>토큰 없음</Badge>}>
-      <p className="text-sm text-muted">
+    <Section title="GitHub" actions={s.githubTokenSet ? <Badge tone="green">토큰 설정됨</Badge> : <Badge>토큰 없음</Badge>}>
+      <p className="text-[14px] leading-relaxed text-muted">
         비공개 저장소를 받거나 앱 추가 화면에서 내 저장소 목록을 보려면 토큰을 넣으세요. Fine-grained token 이라면 Repository access 에서 저장소를 고르고 Contents: Read-only, Metadata: Read-only 면 충분합니다.
       </p>
-      <div className="flex gap-2">
-        <input className="input mono" type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder={s.githubTokenSet ? '새 토큰으로 바꾸기' : 'github_pat_... 또는 ghp_...'} autoComplete="off" />
+      <div className="flex flex-wrap gap-2 sm:flex-nowrap">
+        <input className="input mono min-w-0 flex-1" type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder={s.githubTokenSet ? '새 토큰으로 바꾸기' : 'github_pat_... 또는 ghp_...'} autoComplete="off" />
         <Button
           variant="primary"
           disabled={!token}
@@ -167,7 +176,7 @@ function GitHub({ s, reload }: { s: SettingsData; reload: () => void }) {
           저장
         </Button>
         {s.githubTokenSet && (
-          <Button variant="ghost" loading={busy === 'd'} onClick={() => run('d', () => api.put('/api/settings', { githubToken: '' }).then(reload), '토큰을 지웠습니다')}>
+          <Button variant="danger" loading={busy === 'd'} onClick={() => run('d', () => api.put('/api/settings', { githubToken: '' }).then(reload), '토큰을 지웠습니다')}>
             지우기
           </Button>
         )}
@@ -186,28 +195,29 @@ function Notifications({ s, reload }: { s: SettingsData; reload: () => void }) {
   }, [s]);
   const { busy, run } = useAction();
   return (
-    <Section icon={<Bell size={16} />} title="알림 (디스코드)">
+    <>
+    <Section title="알림 (디스코드)" actions={s.discordSet ? <Badge tone="green">연결됨</Badge> : undefined}>
       <Field label="전역 웹후크" hint={s.discordSet ? `현재: ${s.discordWebhook}` : '디스코드 채널 → 설정 → 연동 → 웹후크 → URL 복사'}>
-        <div className="flex gap-2">
-          <input className="input mono" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://discord.com/api/webhooks/..." />
+        <div className="flex flex-wrap gap-2 sm:flex-nowrap">
+          <input className="input mono min-w-0 flex-1" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://discord.com/api/webhooks/..." />
           <Button variant="primary" disabled={!url} loading={busy === 'u'} onClick={() => run('u', () => api.put('/api/settings', { discordWebhook: url }).then(() => (setUrl(''), reload())), '저장했습니다')}>
             저장
           </Button>
           {s.discordSet && (
             <>
-              <Button variant="ghost" loading={busy === 't'} onClick={() => run('t', () => api.post('/api/settings/test-discord'), '테스트 알림을 보냈습니다')}>
+              <Button loading={busy === 't'} onClick={() => run('t', () => api.post('/api/settings/test-discord'), '테스트 알림을 보냈습니다')}>
                 테스트
               </Button>
-              <Button variant="ghost" loading={busy === 'x'} onClick={() => run('x', () => api.put('/api/settings', { discordWebhook: '' }).then(reload), '지웠습니다')}>
+              <Button variant="danger" loading={busy === 'x'} onClick={() => run('x', () => api.put('/api/settings', { discordWebhook: '' }).then(reload), '지웠습니다')}>
                 지우기
               </Button>
             </>
           )}
         </div>
       </Field>
-      <div>
-        <div className="label">새 앱의 기본 알림 항목</div>
-        <div className="grid gap-3 sm:grid-cols-3">
+    </Section>
+    <Section title="새 앱의 기본 알림 항목">
+        <ToggleRows>
           {(
             [
               ['push', '새 푸시 감지'],
@@ -220,12 +230,14 @@ function Notifications({ s, reload }: { s: SettingsData; reload: () => void }) {
           ).map(([k, label]) => (
             <Toggle key={k} checked={!!d.notify[k]} onChange={(v) => setD({ ...d, notify: { ...d.notify, [k]: v } })} label={label} />
           ))}
-        </div>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Field label="새 앱 기본 폴링 주기 (초)">
-          <input className="input mono" inputMode="numeric" value={d.pollIntervalSec} onChange={(e) => setD({ ...d, pollIntervalSec: Number(e.target.value.replace(/\D/g, '')) || 60 })} />
+        </ToggleRows>
+        <Field label="새 앱 기본 폴링 주기 (초)" className="hairline-t pt-5">
+          <input className="input mono sm:w-40" inputMode="numeric" value={d.pollIntervalSec} onChange={(e) => setD({ ...d, pollIntervalSec: Number(e.target.value.replace(/\D/g, '')) || 60 })} />
         </Field>
+    </Section>
+    <Section title="서버 경고">
+      <Toggle checked={a.enabled} onChange={(v) => setA({ ...a, enabled: v })} label="서버 경고 알림 (디스크/메모리/DB 다운)" />
+      <div className="hairline-t grid gap-5 pt-5 sm:grid-cols-2">
         <Field label="디스크 경고 (%)">
           <input className="input mono" inputMode="numeric" value={a.diskPercent} onChange={(e) => setA({ ...a, diskPercent: Number(e.target.value.replace(/\D/g, '')) || 90 })} />
         </Field>
@@ -233,13 +245,14 @@ function Notifications({ s, reload }: { s: SettingsData; reload: () => void }) {
           <input className="input mono" inputMode="numeric" value={a.memPercent} onChange={(e) => setA({ ...a, memPercent: Number(e.target.value.replace(/\D/g, '')) || 95 })} />
         </Field>
       </div>
-      <Toggle checked={a.enabled} onChange={(v) => setA({ ...a, enabled: v })} label="서버 경고 알림 (디스크/메모리/DB 다운)" />
-      <div className="flex justify-end">
-        <Button variant="primary" icon={<Save size={15} />} loading={busy === 's'} onClick={() => run('s', () => api.put('/api/settings', { defaults: d, alerts: a }).then(reload), '저장했습니다')}>
-          저장
-        </Button>
-      </div>
     </Section>
+    <div className="-mt-5 flex items-center justify-end gap-3">
+      <span className="text-[13px] text-muted">기본 알림 항목과 서버 경고를 함께 저장합니다</span>
+      <Button variant="primary" icon={<Save size={15} />} loading={busy === 's'} onClick={() => run('s', () => api.put('/api/settings', { defaults: d, alerts: a }).then(reload), '저장했습니다')}>
+        저장
+      </Button>
+    </div>
+    </>
   );
 }
 
@@ -255,8 +268,8 @@ function Account({ me }: { me: Me }) {
   const { data: sessions, reload } = useApi<{ id: string; created_at: number; last_seen_at: number; ip: string; user_agent: string; current: boolean }[]>('/api/auth/sessions');
   return (
     <>
-      <Section icon={<KeyRound size={16} />} title={`내 계정 (${me.username})`}>
-        <div className="grid gap-4 sm:grid-cols-3">
+      <Section title={`내 계정 (${me.username})`}>
+        <div className="grid gap-5 sm:grid-cols-3">
           <Field label="현재 비밀번호">
             <input className="input" type="password" value={cur} onChange={(e) => setCur(e.target.value)} autoComplete="current-password" />
           </Field>
@@ -282,59 +295,67 @@ function Account({ me }: { me: Me }) {
             비밀번호 변경
           </Button>
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
-          <div>
-            <div className="flex items-center gap-2 font-medium">
-              <ShieldCheck size={16} className={me.totpEnabled ? 'text-ok' : 'text-muted'} />
-              2단계 인증 (OTP)
-              {me.totpEnabled ? <Badge tone="green">켜짐</Badge> : <Badge>꺼짐</Badge>}
-            </div>
-            <div className="mt-1 text-sm text-muted">로그인과 삭제·복원 같은 위험한 작업에 인증 앱 코드를 요구합니다.</div>
-          </div>
-          {me.totpEnabled ? (
-            <Button variant="ghost" onClick={() => setDisableOpen(true)}>
-              끄기
-            </Button>
-          ) : (
-            <Button
-              variant="primary"
-              loading={busy === 'otp'}
-              onClick={() =>
-                run('otp', async () => {
-                  const r = await api.post<{ secret: string; uri: string }>('/api/auth/totp/begin');
-                  const qr = await QRCode.toDataURL(r.uri, { margin: 1, width: 220, color: { dark: '#000000', light: '#ffffff' } });
-                  setSetup({ ...r, qr });
-                  setCode('');
-                })
-              }
-            >
-              OTP 켜기
-            </Button>
-          )}
-        </div>
       </Section>
 
-      <Section icon={<Monitor size={16} />} title="로그인된 기기">
-        <div className="divide-y divide-line">
-          {(sessions ?? []).map((s) => (
-            <div key={s.id} className="flex items-center gap-3 py-2.5 text-sm">
-              <div className="min-w-0 flex-1">
-                <div className="truncate">{s.user_agent.replace(/\(.*?\)/g, '').slice(0, 80) || '알 수 없는 브라우저'}</div>
-                <div className="text-xs text-muted">
-                  {s.ip} · 마지막 {ago(s.last_seen_at)}
-                </div>
-              </div>
-              {s.current ? (
-                <Badge tone="green">지금 이 기기</Badge>
+      <Card title="2단계 인증" pad={false} footer="로그인과 삭제·복원 같은 위험한 작업에 인증 앱 코드를 요구합니다.">
+        <Row
+          icon={
+            <IconTile tone={me.totpEnabled ? 'ok' : 'gray'}>
+              <ShieldCheck size={17} />
+            </IconTile>
+          }
+          title="2단계 인증 (OTP)"
+          trailing={
+            <span className="flex shrink-0 items-center gap-2">
+              {me.totpEnabled ? <Badge tone="green">켜짐</Badge> : <Badge>꺼짐</Badge>}
+              {me.totpEnabled ? (
+                <Button size="sm" variant="danger" onClick={() => setDisableOpen(true)}>
+                  끄기
+                </Button>
               ) : (
-                <IconButton title="로그아웃시키기" onClick={() => run(`s${s.id}`, () => api.del(`/api/auth/sessions/${s.id}`).then(reload), '로그아웃시켰습니다')}>
-                  <Trash2 size={15} />
-                </IconButton>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  loading={busy === 'otp'}
+                  onClick={() =>
+                    run('otp', async () => {
+                      const r = await api.post<{ secret: string; uri: string }>('/api/auth/totp/begin');
+                      // QR 은 테마와 상관없이 흰 바탕에 검은 점이어야 잘 읽힌다
+                      const qr = await QRCode.toDataURL(r.uri, { margin: 1, width: 220, color: { dark: '#000000', light: '#ffffff' } });
+                      setSetup({ ...r, qr });
+                      setCode('');
+                    })
+                  }
+                >
+                  OTP 켜기
+                </Button>
               )}
-            </div>
+            </span>
+          }
+        />
+      </Card>
+
+      <section className="min-w-0">
+        <SectionHeader title="로그인된 기기" />
+        <List>
+          {(sessions ?? []).map((s) => (
+            <Row
+              key={s.id}
+              title={s.user_agent.replace(/\(.*?\)/g, '').slice(0, 80) || '알 수 없는 브라우저'}
+              sub={`${s.ip} · 마지막 ${ago(s.last_seen_at)}`}
+              trailing={
+                s.current ? (
+                  <Badge tone="green">지금 이 기기</Badge>
+                ) : (
+                  <IconButton title="로그아웃시키기" onClick={() => run(`s${s.id}`, () => api.del(`/api/auth/sessions/${s.id}`).then(reload), '로그아웃시켰습니다')}>
+                    <Trash2 size={15} />
+                  </IconButton>
+                )
+              }
+            />
           ))}
-        </div>
-      </Section>
+        </List>
+      </section>
 
       <Modal
         open={!!setup}
@@ -343,7 +364,7 @@ function Account({ me }: { me: Me }) {
         width={440}
         footer={
           <>
-            <Button variant="ghost" onClick={() => setSetup(null)}>
+            <Button onClick={() => setSetup(null)}>
               취소
             </Button>
             <Button
@@ -364,16 +385,18 @@ function Account({ me }: { me: Me }) {
         }
       >
         {setup && (
-          <div className="space-y-4 text-sm">
-            <p className="text-fg-2">Google Authenticator, 1Password, Authy 등으로 QR 을 찍은 뒤 나오는 6자리 코드를 입력하세요.</p>
-            <img src={setup.qr} alt="OTP QR" className="mx-auto rounded-xl" width={220} height={220} />
+          <div className="space-y-5 text-[15px]">
+            <p className="leading-relaxed text-fg-2">Google Authenticator, 1Password, Authy 등으로 QR 을 찍은 뒤 나오는 6자리 코드를 입력하세요.</p>
+            <div className="mx-auto w-fit rounded-[14px] bg-white p-2">
+              <img src={setup.qr} alt="OTP QR" className="block" width={220} height={220} />
+            </div>
             <Field label="직접 입력용 키">
               <CopyField value={setup.secret} />
             </Field>
             <Field label="6자리 코드">
               <input className="input mono text-center text-lg tracking-[0.4em]" inputMode="numeric" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} autoFocus />
             </Field>
-            <p className="text-xs text-muted">휴대폰을 잃어버리면 서버에서 sudo hrone disable-2fa {me.username} 로 끌 수 있습니다.</p>
+            <p className="text-[13px] leading-relaxed text-muted">휴대폰을 잃어버리면 서버에서 sudo hrone disable-2fa {me.username} 로 끌 수 있습니다.</p>
           </div>
         )}
       </Modal>
@@ -401,22 +424,33 @@ function UsersCard({ me }: { me: Me }) {
   const [del, setDel] = useState<{ id: number; username: string } | null>(null);
   const { busy, run } = useAction();
   return (
-    <Section icon={<Users size={16} />} title="관리자 계정" actions={<Button size="sm" icon={<UserPlus size={14} />} onClick={() => setOpen(true)}>추가</Button>}>
-      <div className="divide-y divide-line">
-        {(data ?? []).map((x) => (
-          <div key={x.id} className="flex items-center gap-3 py-2.5 text-sm">
-            <span className="flex-1 font-medium">{x.username}</span>
-            {x.totpEnabled && <Badge tone="green">OTP</Badge>}
-            <span className="text-xs text-muted">{x.lastLoginAt ? `${ago(x.lastLoginAt)} 로그인` : '로그인 기록 없음'}</span>
-            {x.username !== me.username && (
-              <IconButton title="삭제" onClick={() => setDel(x)}>
-                <Trash2 size={15} />
-              </IconButton>
-            )}
-          </div>
-        ))}
-      </div>
-      <div className="text-xs text-muted">모든 계정은 같은 전체 권한을 가집니다. 변경 내용은 활동 기록에 계정별로 남습니다.</div>
+    <Card
+      title="관리자 계정"
+      pad={false}
+      actions={
+        <Button size="sm" variant="plain" icon={<UserPlus size={14} />} onClick={() => setOpen(true)}>
+          추가
+        </Button>
+      }
+      footer="모든 계정은 같은 전체 권한을 가집니다. 변경 내용은 활동 기록에 계정별로 남습니다."
+    >
+      {(data ?? []).map((x) => (
+        <Row
+          key={x.id}
+          title={<span className="font-medium">{x.username}</span>}
+          sub={x.lastLoginAt ? `${ago(x.lastLoginAt)} 로그인` : '로그인 기록 없음'}
+          trailing={
+            <span className="flex shrink-0 items-center gap-1.5">
+              {x.totpEnabled && <Badge tone="green">OTP</Badge>}
+              {x.username !== me.username && (
+                <IconButton title="삭제" onClick={() => setDel(x)}>
+                  <Trash2 size={15} />
+                </IconButton>
+              )}
+            </span>
+          }
+        />
+      ))}
       <Modal
         open={open}
         onClose={() => setOpen(false)}
@@ -433,7 +467,7 @@ function UsersCard({ me }: { me: Me }) {
           </Button>
         }
       >
-        <div className="space-y-4">
+        <div className="space-y-5">
           <Field label="아이디">
             <input className="input" value={u} onChange={(e) => setU(e.target.value)} autoFocus />
           </Field>
@@ -455,6 +489,47 @@ function UsersCard({ me }: { me: Me }) {
           reload();
         }}
       />
-    </Section>
+    </Card>
+  );
+}
+
+const THEMES: { value: ThemePref; label: string }[] = [
+  { value: 'system', label: '시스템' },
+  { value: 'light', label: '라이트' },
+  { value: 'dark', label: '다크' },
+];
+
+/** 내 계정 → 화면: 테마 (이 브라우저에만 저장) */
+function Appearance() {
+  const theme = useTheme();
+  return (
+    <Card title="화면" footer="이 브라우저에만 저장됩니다. 시스템을 고르면 기기의 라이트/다크 설정을 따릅니다.">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <span className="text-[15px]">테마</span>
+        <Segmented value={theme} onChange={setTheme} options={THEMES} />
+      </div>
+    </Card>
+  );
+}
+
+/** 폰에서는 사이드바가 없으므로 여기서 로그아웃한다 */
+function LogoutRow() {
+  return (
+    <List>
+      <Row
+        icon={
+          <IconTile tone="bad">
+            <LogOut size={16} />
+          </IconTile>
+        }
+        title="로그아웃"
+        danger
+        chevron={false}
+        onClick={async () => {
+          await api.post('/api/auth/logout');
+          location.href = '/';
+        }}
+      />
+    </List>
   );
 }

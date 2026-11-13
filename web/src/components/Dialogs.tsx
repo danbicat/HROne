@@ -52,14 +52,14 @@ export function DangerDialog({
       onClose={() => !busy && onClose()}
       dismissable={!busy}
       title={
-        <span className="flex items-center gap-2 text-bad">
-          <AlertTriangle size={18} /> {title}
+        <span className="flex items-center gap-2">
+          <AlertTriangle size={19} className="shrink-0 text-bad" /> {title}
         </span>
       }
       footer={
         step === 1 ? (
           <>
-            <Button variant="ghost" onClick={onClose}>
+            <Button onClick={onClose}>
               취소
             </Button>
             <Button variant="danger" onClick={() => setStep(2)}>
@@ -68,7 +68,7 @@ export function DangerDialog({
           </>
         ) : (
           <>
-            <Button variant="ghost" onClick={() => setStep(1)} disabled={busy}>
+            <Button onClick={() => setStep(1)} disabled={busy}>
               뒤로
             </Button>
             <Button
@@ -95,21 +95,21 @@ export function DangerDialog({
       }
     >
       {step === 1 ? (
-        <div className="space-y-4 text-sm">
+        <div className="space-y-5 text-[15px]">
           <p className="text-fg-2">되돌릴 수 없습니다. 아래 항목이 삭제됩니다.</p>
-          <ul className="space-y-1.5 rounded-xl border border-bad/25 bg-bad/8 px-4 py-3">
+          <ul className="rounded-[14px] bg-bad/8 px-4">
             {items.map((it, i) => (
-              <li key={i} className="flex gap-2 text-fg-2">
-                <span className="text-bad">•</span>
-                <span>{it}</span>
+              <li key={i} className={cx('flex gap-2.5 py-2.5 text-[14px] leading-relaxed text-fg', i > 0 && 'hairline-t')}>
+                <span className="mt-[9px] h-1.5 w-1.5 shrink-0 rounded-full bg-bad-dot" />
+                <span className="min-w-0">{it}</span>
               </li>
             ))}
           </ul>
-          {options && <div className="space-y-3">{options}</div>}
+          {options && <div className="space-y-4">{options}</div>}
         </div>
       ) : (
-        <div className="space-y-4 text-sm">
-          <Field label={<>확인을 위해 <code className="rounded bg-surface-3 px-1.5 py-0.5 text-bad">{target}</code> 를 입력하세요</>}>
+        <div className="space-y-5 text-[15px]">
+          <Field label={<>확인을 위해 <code className="mono rounded-[6px] bg-bad/10 px-1.5 py-0.5 text-bad">{target}</code> 를 입력하세요</>}>
             <input className="input mono" value={typed} onChange={(e) => setTyped(e.target.value)} autoFocus autoComplete="off" spellCheck={false} />
           </Field>
           <Field label="비밀번호 재확인">
@@ -120,7 +120,7 @@ export function DangerDialog({
               <input className="input mono tracking-[0.3em]" inputMode="numeric" maxLength={6} value={totp} onChange={(e) => setTotp(e.target.value.replace(/\D/g, ''))} />
             </Field>
           )}
-          {error && <div className="rounded-lg bg-bad/10 px-3 py-2 text-bad">{error}</div>}
+          {error && <div className="rounded-[12px] bg-bad/10 px-4 py-3 text-[14px] text-bad">{error}</div>}
         </div>
       )}
     </Modal>
@@ -166,7 +166,7 @@ export function ReauthDialog({
       width={440}
       footer={
         <>
-          <Button variant="ghost" onClick={onClose} disabled={busy}>
+          <Button onClick={onClose} disabled={busy}>
             취소
           </Button>
           <Button
@@ -191,7 +191,7 @@ export function ReauthDialog({
         </>
       }
     >
-      <div className="space-y-4 text-sm">
+      <div className="space-y-5 text-[15px]">
         {body && <div className="leading-relaxed text-fg-2">{body}</div>}
         <Field label="비밀번호">
           <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus />
@@ -201,7 +201,7 @@ export function ReauthDialog({
             <input className="input mono tracking-[0.3em]" inputMode="numeric" maxLength={6} value={totp} onChange={(e) => setTotp(e.target.value.replace(/\D/g, ''))} />
           </Field>
         )}
-        {error && <div className="rounded-lg bg-bad/10 px-3 py-2 text-bad">{error}</div>}
+        {error && <div className="rounded-[12px] bg-bad/10 px-4 py-3 text-[14px] text-bad">{error}</div>}
       </div>
     </Modal>
   );
@@ -258,7 +258,7 @@ export function JobDialog({ jobId, onClose, onDone }: { jobId: number | null; on
       footer={
         <>
           {job?.status === 'done' && job.result?.download && (
-            <a href={job.result.download} className="inline-flex h-9 items-center gap-1.5 rounded-[9px] bg-accent px-3.5 text-sm font-medium text-white hover:bg-accent-2">
+            <a href={job.result.download} className="inline-flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-accent px-4 text-sm font-medium text-white transition-[filter] hover:brightness-110">
               <Download size={15} />
               백업 파일 내려받기
             </a>
@@ -267,7 +267,7 @@ export function JobDialog({ jobId, onClose, onDone }: { jobId: number | null; on
         </>
       }
     >
-      <div ref={box} className="mono h-72 overflow-auto rounded-xl border border-line bg-code p-3 text-[12px] leading-relaxed whitespace-pre-wrap break-all text-fg-2">
+      <div ref={box} className="console mono h-72 overflow-auto rounded-[14px] p-4 text-[12.5px] leading-[1.6] whitespace-pre-wrap break-all">
         {(job?.lines ?? []).map((l, i) => (
           <div key={i} className={cx(l.startsWith('오류') && 'text-bad', (l === '완료' || l.endsWith('완료')) && 'text-ok')}>
             {l}
