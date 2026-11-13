@@ -22,6 +22,7 @@ import {
   PageHeader,
   Row,
   SectionHeader,
+  Stats,
   StatusBadge,
   Tabs,
   Toggle,
@@ -31,8 +32,8 @@ import {
   cx,
 } from '../components/ui';
 import { api, errorText } from '../lib/api';
-import { bytes, dateTime, duration } from '../lib/format';
-import { navigate, setQuery, useLocation, useTitle } from '../lib/router';
+import { bytes, dateTime, duration, josa } from '../lib/format';
+import { Link, navigate, setQuery, useLocation, useTitle } from '../lib/router';
 import { useApi, useUnit } from '../lib/store';
 import { BackupList, type Backup } from './Backups';
 import { DbIcon, type DbSummary } from './Dashboard';
@@ -101,12 +102,10 @@ export function DbDetail({ slug, me }: { slug: string; me: Me }) {
         icon={<DbIcon type={db.type} size={56} />}
         title={db.name}
         sub={
-          <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
             {db.job ? <Badge tone="blue">준비 중</Badge> : <StatusBadge state={db.initialized ? st?.state : 'not-deployed'} />}
-            <span className="text-muted/50">·</span>
             <span>{maria ? 'MariaDB' : 'Redis'}</span>
-            <span className="text-muted/50">·</span>
-            <span className="mono text-[14px]">{db.bind === 'local' ? '127.0.0.1' : db.bind === 'all' ? '0.0.0.0' : db.bind}:{db.port}</span>
+            <span className="mono">{db.bind === 'local' ? '127.0.0.1' : db.bind === 'all' ? '0.0.0.0' : db.bind}:{db.port}</span>
           </span>
         }
         actions={
@@ -122,7 +121,7 @@ export function DbDetail({ slug, me }: { slug: string; me: Me }) {
                   icon={<Square size={13} />}
                   loading={busy === 'stop'}
                   onClick={async () => {
-                    if (await confirm({ title: 'DB 정지', body: db.linkedApps.length ? `연결된 앱(${db.linkedApps.map((a) => a.name).join(', ')})이 DB 에 접속하지 못하게 됩니다.` : 'DB 를 정지합니다.', confirm: '정지' })) act('stop');
+                    if (await confirm({ title: `${josa(db.name, '을', '를')} 정지할까요?`, body: db.linkedApps.length ? `연결된 앱(${db.linkedApps.map((a) => a.name).join(', ')})이 DB에 접속하지 못하게 됩니다.` : '접속 중인 클라이언트의 연결이 끊어집니다.', confirm: '정지' })) act('stop');
                   }}
                 >
                   정지
@@ -207,20 +206,25 @@ function Overview({ db, running, reload }: { db: DbDetailData; running: boolean;
   };
   const conn = s && !s.error ? (maria ? { cur: Number(s.Threads_connected), max: Number(s.max_connections), peak: Number(s.Max_used_connections) } : { cur: s.connectedClients, max: s.maxClients, peak: null }) : null;
 
-  const tiles: { label: string; value: string; unit?: string; sub: string; meter?: number }[] = [
+  const connPct = conn ? (conn.cur / Math.max(1, conn.max)) * 100 : 0;
+  const tiles = [
     {
       label: '연결',
       value: conn ? String(conn.cur) : '-',
       unit: conn ? `/ ${conn.max}` : undefined,
-      sub: conn?.peak !== null && conn ? `최대 사용 ${conn.peak}` : maria ? '' : '클라이언트',
-      meter: conn ? (conn.cur / Math.max(1, conn.max)) * 100 : undefined,
+      sub: conn?.peak !== null && conn ? `최대 사용 ${conn.peak}` : maria ? undefined : '클라이언트',
+      chart: conn ? (
+        <span className="flex h-7 items-end pb-1">
+          <Meter value={connPct} />
+        </span>
+      ) : undefined,
     },
     { label: '메모리', value: s ? (maria ? bytes(Number(s?.innodb_buffer_pool_size ?? 0), 0) : bytes(s?.usedMemory)) : '-', sub: maria ? '버퍼 풀' : s?.maxMemory ? `상한 ${bytes(s.maxMemory)}` : '상한 없음' },
     { label: '가동 시간', value: s ? duration(maria ? Number(s.Uptime) : s.uptime) : '-', sub: `버전 ${(maria ? String(s?.version ?? '').split('-')[0] : s?.version) || '-'}` },
     {
       label: maria ? '쿼리' : '초당 명령',
       value: s ? String(maria ? Number(s.Questions).toLocaleString() : s.opsPerSec) : '-',
-      sub: maria ? `느린 쿼리 ${s?.Slow_queries ?? '-'}` : `키 ${s ? Object.values(s.keyspace as Record<string, number>).reduce((a, b) => a + b, 0) : '-'}`,
+      sub: maria ? `느린 쿼리 ${s?.Slow_queries ?? '-'}` : `키 ${s ? Object.values((s.keyspace ?? {}) as Record<string, number>).reduce((a, b) => a + b, 0) : '-'}`,
     },
   ];
   const secret = (label: ReactNode, value: string, onReveal: () => Promise<string>, hint?: ReactNode) => <ConnRow label={label} hint={hint}><CopyField value={value} secret onReveal={onReveal} /></ConnRow>;
@@ -228,30 +232,14 @@ function Overview({ db, running, reload }: { db: DbDetailData; running: boolean;
   return (
     <div className="space-y-9">
       <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-          {tiles.map((t) => (
-            <div key={t.label} className="card flex min-w-0 flex-col p-4 sm:p-5">
-              <div className="text-[13px] font-medium text-muted">{t.label}</div>
-              <div className="mt-2 flex min-w-0 items-baseline gap-1 whitespace-nowrap">
-                <span className="truncate text-[28px] font-semibold leading-none tracking-[-0.03em] sm:text-[34px]">{t.value}</span>
-                {t.unit && <span className="text-[17px] font-semibold text-muted">{t.unit}</span>}
-              </div>
-              <div className="mt-1.5 truncate text-[13px] text-muted">{t.sub || '\u00a0'}</div>
-              {t.meter !== undefined && (
-                <div className="mt-auto pt-3">
-                  <Meter value={t.meter} />
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+        <Stats items={tiles} />
         {s?.error && <ErrorBox error={s.error} />}
         {maria && s && Number(s.Connection_errors_max_connections) > 0 && (
           <Notice tone="yellow" title={`연결 수 초과로 거부된 접속이 ${s.Connection_errors_max_connections}번 있었습니다`}>
-            설정 → 연결 제한에서 "제한 해제" 를 누르거나 max_connections 를 올리세요.
+            <Link to={`/databases/${db.slug}?tab=settings`} className="text-accent-2 hover:opacity-75">연결 제한 설정</Link>에서 제한 해제를 누르거나 max_connections를 올리세요.
           </Notice>
         )}
-        {!maria && s && s.rejectedConnections > 0 && <Notice tone="yellow" title={`거부된 연결 ${s.rejectedConnections}회`}>설정 → 연결 제한에서 maxclients 를 올리세요.</Notice>}
+        {!maria && s && s.rejectedConnections > 0 && <Notice tone="yellow" title={`거부된 연결 ${s.rejectedConnections}회`}><Link to={`/databases/${db.slug}?tab=settings`} className="text-accent-2 hover:opacity-75">연결 제한 설정</Link>에서 maxclients를 올리세요.</Notice>}
       </div>
 
       <div className="grid gap-9 lg:grid-cols-[1fr_360px] lg:gap-6">
@@ -299,7 +287,7 @@ function Overview({ db, running, reload }: { db: DbDetailData; running: boolean;
           <section>
             <SectionHeader title="연결된 앱" />
             {db.linkedApps.length === 0 ? (
-              <div className="card px-5 py-4 text-[14px] leading-relaxed text-muted">없음 · 앱 → 환경변수 탭에서 이 DB 를 연결하면 접속 정보가 자동으로 들어갑니다</div>
+              <div className="card px-5 py-4 text-footnote text-muted">이 DB를 쓰는 앱이 여기에 나옵니다. 앱의 환경변수 탭에서 이 DB를 연결하면 접속 정보가 자동으로 들어갑니다.</div>
             ) : (
               <List>
                 {db.linkedApps.map((a) => (
@@ -312,9 +300,9 @@ function Overview({ db, running, reload }: { db: DbDetailData; running: boolean;
             <div className="space-y-4">
               <KV
                 items={[
-                  ['데이터 폴더', <span className="mono text-[13px] break-all">{db.dataDir}</span>],
+                  ['데이터 폴더', <span className="mono text-footnote break-all">{db.dataDir}</span>],
                   ['만든 날', dateTime(db.createdAt)],
-                  ['자동 백업', db.config.backup.enabled ? (db.config.backup.mode === 'daily' ? `매일 ${db.config.backup.time}` : `${db.config.backup.intervalHours}시간마다`) + ` · ${db.config.backup.keep}개 보관` : '꺼짐'],
+                  ['자동 백업', db.config.backup.enabled ? (db.config.backup.mode === 'daily' ? `매일 ${db.config.backup.time}` : `${db.config.backup.intervalHours}시간마다`) + `, ${db.config.backup.keep}개 보관` : '꺼짐'],
                 ]}
               />
               <div className="hairline-t pt-4">
@@ -333,11 +321,11 @@ function Overview({ db, running, reload }: { db: DbDetailData; running: boolean;
                     loading={busy === w}
                     disabled={!running}
                     onClick={async () => {
-                      if (!(await confirm({ title: `${w === 'app' ? '앱 계정' : maria ? '관리자' : ''} 비밀번호 변경`, body: '새 비밀번호를 만들고, 연결된 앱의 환경변수도 바꿉니다. 앱은 재시작해야 새 비밀번호를 씁니다.', confirm: '변경' }))) return;
+                      if (!(await confirm({ title: `${w === 'app' ? '앱 계정' : maria ? '관리자' : ''} 비밀번호를 변경할까요?`.trimStart(), body: '연결된 앱의 환경변수도 바뀌며, 앱은 재시작해야 새 비밀번호를 씁니다.', confirm: '변경' }))) return;
                       run(w, async () => {
                         await api.post(`/api/databases/${db.slug}/password`, { which: w });
                         setCreds(null);
-                      }, '비밀번호를 바꿨습니다. 연결된 앱을 재시작하세요.');
+                      }, '비밀번호를 변경했습니다. 연결된 앱을 재시작하세요.');
                     }}
                   >
                     {maria ? (w === 'app' ? '앱 계정 비밀번호 변경' : '관리자 비밀번호 변경') : '비밀번호 변경'}
@@ -357,8 +345,8 @@ function ConnRow({ label, hint, children }: { label: ReactNode; hint?: ReactNode
   return (
     <div className="grid gap-1.5 py-3 sm:grid-cols-[150px_minmax(0,1fr)] sm:items-center sm:gap-4 [&+&]:shadow-[inset_0_0.5px_0_var(--color-line-2)]">
       <div className="min-w-0">
-        <div className="text-[15px]">{label}</div>
-        {hint && <div className="text-[13px] text-muted">{hint}</div>}
+        <div className="text-body">{label}</div>
+        {hint && <div className="text-footnote text-muted">{hint}</div>}
       </div>
       <div className="min-w-0">{children}</div>
     </div>
@@ -402,7 +390,7 @@ function QueryConsole({ db }: { db: DbDetailData }) {
         title={maria ? 'SQL' : 'redis-cli'}
         actions={
           maria ? (
-            <select className="input h-8 min-h-8 w-44 py-0 text-[13px] sm:w-52" value={database} onChange={(e) => setDatabase(e.target.value)} aria-label="DB">
+            <select className="input h-8 min-h-8 w-44 py-0 text-footnote sm:w-52" value={database} onChange={(e) => setDatabase(e.target.value)} aria-label="DB">
               <option value="">(DB 선택 안 함)</option>
               {(schemas ?? []).map((s) => (
                 <option key={s.name} value={s.name}>
@@ -411,7 +399,7 @@ function QueryConsole({ db }: { db: DbDetailData }) {
               ))}
             </select>
           ) : (
-            <select className="input h-8 min-h-8 w-24 py-0 text-[13px]" value={database} onChange={(e) => setDatabase(e.target.value)} aria-label="DB 번호">
+            <select className="input h-8 min-h-8 w-24 py-0 text-footnote" value={database} onChange={(e) => setDatabase(e.target.value)} aria-label="DB 번호">
               {Array.from({ length: 16 }, (_, i) => (
                 <option key={i} value={String(i)}>
                   db{i}
@@ -423,7 +411,7 @@ function QueryConsole({ db }: { db: DbDetailData }) {
         footer={maria ? 'root 권한으로 실행됩니다.' : '한 줄에 명령 하나씩 실행합니다.'}
       >
         <textarea
-          className="input mono min-h-[160px] resize-y rounded-[12px] px-4 py-3 text-[13.5px] leading-relaxed"
+          className="input mono min-h-[160px] resize-y rounded-control px-4 py-3 text-footnote"
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
@@ -437,10 +425,10 @@ function QueryConsole({ db }: { db: DbDetailData }) {
         />
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <Button variant="primary" icon={<Play size={14} />} loading={busy} onClick={exec}>
-            실행 <span className="text-[12px] font-normal opacity-75 max-sm:hidden">⌘/Ctrl+Enter</span>
+            실행 <span className="text-caption font-normal opacity-75 max-sm:hidden">⌘/Ctrl+Enter</span>
           </Button>
           {history.length > 0 && (
-            <select className="input h-9 w-auto min-w-0 max-w-full flex-1 py-0 text-[13px] sm:max-w-72" value="" onChange={(e) => e.target.value && setText(e.target.value)} aria-label="최근 실행">
+            <select className="input h-9 w-auto min-w-0 max-w-full flex-1 py-0 text-footnote sm:max-w-72" value="" onChange={(e) => e.target.value && setText(e.target.value)} aria-label="최근 실행">
               <option value="">최근 실행...</option>
               {history.map((h, i) => (
                 <option key={i} value={h}>
@@ -449,14 +437,14 @@ function QueryConsole({ db }: { db: DbDetailData }) {
               ))}
             </select>
           )}
-          {out && <span className="ml-auto text-[13px] text-muted">{out.ms}ms</span>}
+          {out && <span className="ml-auto text-footnote text-muted">{out.ms}ms</span>}
         </div>
       </Card>
-      {err && <div className="mono whitespace-pre-wrap break-words rounded-[14px] bg-bad/10 px-4 py-3 text-[13px] text-bad">{err}</div>}
+      {err && <div className="mono whitespace-pre-wrap break-words rounded-card bg-bad/10 px-4 py-3 text-footnote text-bad">{err}</div>}
       {out && (
         <section>
           <SectionHeader title="결과" />
-          <pre className="console mono max-h-[60vh] overflow-auto rounded-[14px] p-4 text-[13px] leading-[1.55]">{out.output || '(출력 없음)'}</pre>
+          <pre className="console mono max-h-[60vh] overflow-auto rounded-card p-4 text-footnote leading-[1.55]">{out.output || '(출력 없음)'}</pre>
         </section>
       )}
     </div>
@@ -479,9 +467,10 @@ function Schemas({ db, me }: { db: DbDetailData; me: Me }) {
         {(schemas ?? []).map((s, i) => (
           <div key={s.name} className={cx('flex min-h-[52px] items-center gap-3 py-2 pl-5 pr-3', i > 0 && 'hairline-t')}>
             <span className="min-w-0 flex-1">
-              <span className="mono block truncate text-[14px]">{s.name}</span>
-              <span className="block text-[13px] text-muted">
-                테이블 {s.tables} · {bytes(s.size)}
+              <span className="mono block truncate text-body">{s.name}</span>
+              <span className="flex gap-x-3 text-footnote text-muted">
+                <span>테이블 {s.tables}개</span>
+                <span>{bytes(s.size)}</span>
               </span>
             </span>
             <IconButton title="삭제" onClick={() => setDrop(s.name)} className="hover:text-bad">
@@ -496,7 +485,7 @@ function Schemas({ db, me }: { db: DbDetailData; me: Me }) {
               만들기
             </Button>
           </div>
-          <Toggle checked={grant} onChange={setGrant} label={<span className="text-[14px]">앱 계정({db.config.appUser})에 권한</span>} />
+          <Toggle checked={grant} onChange={setGrant} label={<span className="text-body">앱 계정({db.config.appUser})에 권한</span>} />
         </div>
       </Card>
       <Card
@@ -510,7 +499,7 @@ function Schemas({ db, me }: { db: DbDetailData; me: Me }) {
       >
         {(users ?? []).map((u, i) => (
           <div key={`${u.user}@${u.host}`} className={cx('flex min-h-[52px] items-center gap-2 py-2 pl-5 pr-3', i > 0 && 'hairline-t')}>
-            <span className="mono min-w-0 flex-1 truncate text-[14px]">
+            <span className="mono min-w-0 flex-1 truncate text-body">
               {u.user}
               <span className="text-muted">@{u.host}</span>
             </span>
@@ -529,7 +518,7 @@ function Schemas({ db, me }: { db: DbDetailData; me: Me }) {
                   title="삭제"
                   className="hover:text-bad"
                   onClick={async () => {
-                    if (!(await confirm({ title: `계정 ${u.user} 삭제`, confirm: '삭제', danger: true }))) return;
+                    if (!(await confirm({ title: `${josa(`계정 ${u.user}`, '을', '를')} 삭제할까요?`, body: '이 계정으로 접속하던 클라이언트는 더 이상 접속할 수 없습니다.', confirm: '삭제', danger: true }))) return;
                     run(`rm${u.user}`, () => api.post(`/api/databases/${db.slug}/users/${encodeURIComponent(u.user)}/drop`, { host: u.host }).then(reloadUsers), '삭제했습니다');
                   }}
                 >
@@ -543,7 +532,7 @@ function Schemas({ db, me }: { db: DbDetailData; me: Me }) {
       <DangerDialog
         open={!!drop}
         onClose={() => setDrop(null)}
-        title={`DB ${drop} 삭제`}
+        title={`${josa(`DB ${drop ?? ''}`, '을', '를')} 삭제할까요?`}
         target={drop ?? ''}
         needTotp={me.totpEnabled}
         items={[`데이터베이스 ${drop} 의 모든 테이블과 데이터 (삭제 직전에 전체 백업을 자동으로 만듭니다)`]}
@@ -621,9 +610,9 @@ function NewUserModal({ open, onClose, db, schemas, onCreated }: { open: boolean
         <Toggle checked={all} onChange={setAll} label="모든 DB 권한" />
         {!all && (
           <Field label="권한을 줄 DB">
-            <div className="overflow-hidden rounded-[12px] bg-fill">
+            <div className="overflow-hidden rounded-control bg-fill">
               {schemas.map((s, i) => (
-                <label key={s} className={cx('flex cursor-pointer items-center gap-3 px-3.5 py-2.5 text-[15px]', i > 0 && 'hairline-t')}>
+                <label key={s} className={cx('flex cursor-pointer items-center gap-3 px-3.5 py-2.5 text-body', i > 0 && 'hairline-t')}>
                   <input type="checkbox" checked={sel.includes(s)} onChange={(e) => setSel(e.target.checked ? [...sel, s] : sel.filter((x) => x !== s))} className="accent-[var(--color-accent)]" />
                   <span className="mono">{s}</span>
                 </label>
@@ -641,7 +630,7 @@ function NumField({ label, hint, value, onChange, suffix }: { label: string; hin
     <Field label={label} hint={hint}>
       <div className="flex items-center gap-2">
         <input className="input mono" inputMode="numeric" value={value} onChange={(e) => onChange(Number(e.target.value.replace(/\D/g, '')) || 0)} />
-        {suffix && <span className="shrink-0 text-sm text-muted">{suffix}</span>}
+        {suffix && <span className="shrink-0 text-body text-muted">{suffix}</span>}
       </div>
     </Field>
   );
@@ -655,14 +644,14 @@ function Limits({ db, reload, running }: { db: DbDetailData; reload: () => void;
   const s = data?.status;
   const { busy, run } = useAction();
   const confirm = useConfirm();
-  const showWarnings = (w: string[]) => (w.length ? toast.info(`적용했습니다. 참고: ${w.join(' / ')}`) : toast.ok('바로 적용했습니다 (재시작 없음)'));
+  const showWarnings = (w: string[], done: string) => (w.length ? toast.info(`${done} 참고: ${w.join(' / ')}`) : toast.ok(`${done} 재시작 없이 바로 적용됩니다.`));
   const set = (k: string, v: unknown) => setL((x: any) => ({ ...x, [k]: v }));
   const dirty = JSON.stringify(l) !== JSON.stringify(db.config.limits);
 
   const stat = (label: string, value: ReactNode) => (
     <div key={label} className="min-w-0">
-      <div className="text-[13px] text-muted">{label}</div>
-      <div className="mt-1 truncate text-[22px] font-semibold tracking-[-0.03em]">{value}</div>
+      <div className="text-footnote text-muted">{label}</div>
+      <div className="mt-1 truncate text-title">{value}</div>
     </div>
   );
 
@@ -671,8 +660,8 @@ function Limits({ db, reload, running }: { db: DbDetailData; reload: () => void;
       <Card title="연결 제한" footer={limitSummary(db)}>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="min-w-0 max-w-2xl">
-            <div className="text-[15px] font-semibold">한 번에 해제</div>
-            <p className="mt-1 text-[14px] leading-relaxed text-muted">
+            <div className="text-body font-semibold">한 번에 해제</div>
+            <p className="mt-1 text-footnote text-muted">
               {maria
                 ? 'max_connections 10000, 계정별 제한 없음, max_connect_errors 최대(호스트 차단 방지), 패킷 1GB 로 올립니다. 파일 핸들(LimitNOFILE) 은 이미 1,048,576 입니다.'
                 : 'maxclients 100000, 메모리 상한 없음, 유휴 타임아웃 없음으로 바꿉니다.'}{' '}
@@ -683,10 +672,10 @@ function Limits({ db, reload, running }: { db: DbDetailData; reload: () => void;
             icon={<Unlock size={15} />}
             loading={busy === 'unlimit'}
             onClick={async () => {
-              if (!(await confirm({ title: '제한 해제', body: '연결 관련 제한을 크게 올립니다. 메모리가 부족한 서버라면 접속이 몰릴 때 느려질 수 있습니다.', confirm: '해제' }))) return;
+              if (!(await confirm({ title: `${db.name}의 연결 제한을 해제할까요?`, body: '메모리가 부족한 서버라면 접속이 몰릴 때 느려질 수 있습니다.', confirm: '제한 해제' }))) return;
               run('unlimit', async () => {
                 const r = await api.post<{ warnings: string[] }>(`/api/databases/${db.slug}/unlimit`);
-                showWarnings(r.warnings);
+                showWarnings(r.warnings, '제한을 해제했습니다.');
                 reload();
               });
             }}
@@ -727,7 +716,7 @@ function Limits({ db, reload, running }: { db: DbDetailData; reload: () => void;
         title="세부 설정"
         actions={
           maria && (
-            <Button size="sm" variant="plain" className="h-7" icon={<Eraser size={14} />} loading={busy === 'flush'} onClick={() => run('flush', () => api.post(`/api/databases/${db.slug}/flush-hosts`), '차단된 호스트를 풀었습니다 (FLUSH HOSTS)')}>
+            <Button size="sm" variant="plain" className="h-7" icon={<Eraser size={14} />} loading={busy === 'flush'} onClick={() => run('flush', () => api.post(`/api/databases/${db.slug}/flush-hosts`), '차단된 호스트를 풀었습니다')}>
               차단 호스트 풀기
             </Button>
           )
@@ -765,7 +754,7 @@ function Limits({ db, reload, running }: { db: DbDetailData; reload: () => void;
               </Field>
             </div>
             <div className="hairline-t pt-4">
-              <Toggle checked={l.appendonly} onChange={(v) => set('appendonly', v)} label="AOF (appendonly)" sub="매초 디스크 기록 → 재시작해도 데이터 유지" />
+              <Toggle checked={l.appendonly} onChange={(v) => set('appendonly', v)} label="AOF (appendonly)" sub="매초 디스크에 기록해 재시작해도 데이터가 남습니다" />
             </div>
           </div>
         )}
@@ -778,12 +767,12 @@ function Limits({ db, reload, running }: { db: DbDetailData; reload: () => void;
             onClick={() =>
               run('save', async () => {
                 const r = await api.put<{ warnings: string[] }>(`/api/databases/${db.slug}/limits`, l);
-                showWarnings(r.warnings);
+                showWarnings(r.warnings, '저장했습니다.');
                 reload();
               })
             }
           >
-            저장 + 바로 적용
+            저장
           </Button>
         </div>
       </Card>
@@ -871,7 +860,7 @@ function DbSettings({ db, reload }: { db: DbDetailData; reload: () => void }) {
           </Field>
         </div>
         <div className="hairline-t pt-4">
-          <Disclosure label={<>리소스 제한 <span className="text-muted">{res.cpu || res.memoryMB ? [res.cpu ? `CPU ${res.cpu}코어` : '', res.memoryMB ? `메모리 ${res.memoryMB}MB` : ''].filter(Boolean).join(' · ') : '제한 없음'}</span></>}>
+          <Disclosure label={<>리소스 제한 <span className="text-muted">{res.cpu || res.memoryMB ? [res.cpu ? `CPU ${res.cpu}코어` : '', res.memoryMB ? `메모리 ${res.memoryMB}MB` : ''].filter(Boolean).join(', ') : '제한 없음'}</span></>}>
             <div className="grid gap-5 sm:grid-cols-3">
               <Field label="CPU (코어)">
                 <input className="input mono" value={res.cpu ?? ''} onChange={(e) => setRes({ ...res, cpu: num(e.target.value) })} placeholder="제한 없음" />
@@ -896,7 +885,7 @@ function DbSettings({ db, reload }: { db: DbDetailData; reload: () => void }) {
             loading={busy === 'save'}
             onClick={async () => {
               const restart = Number(port) !== db.config.port || bind !== db.config.bind;
-              if (restart && !(await confirm({ title: 'DB 재시작 필요', body: '포트/접속 주소를 바꾸면 DB 가 재시작됩니다. 연결된 앱도 재시작해야 새 주소를 씁니다.', confirm: '저장 + 재시작' }))) return;
+              if (restart && !(await confirm({ title: `저장하고 ${josa(db.name, '을', '를')} 재시작할까요?`, body: '연결된 앱도 재시작해야 새 주소를 씁니다.', confirm: '저장 후 재시작' }))) return;
               run('save', () => api.patch(`/api/databases/${db.slug}`, { name, port: Number(port), bind, resources: res }).then(reload), '저장했습니다');
             }}
           >
@@ -910,7 +899,7 @@ function DbSettings({ db, reload }: { db: DbDetailData; reload: () => void }) {
 
 function limitSummary(db: DbDetailData) {
   const l = db.config.limits;
-  return 'maxConnections' in l ? `최대 연결 ${l.maxConnections.toLocaleString()} · 계정당 ${l.maxUserConnections || '무제한'}` : `최대 클라이언트 ${l.maxClients.toLocaleString()} · 메모리 ${l.maxMemoryMB ? `${l.maxMemoryMB}MB` : '제한 없음'}`;
+  return 'maxConnections' in l ? `최대 연결 ${l.maxConnections.toLocaleString()}, 계정당 ${l.maxUserConnections || '무제한'}` : `최대 클라이언트 ${l.maxClients.toLocaleString()}, 메모리 ${l.maxMemoryMB ? `${l.maxMemoryMB}MB` : '제한 없음'}`;
 }
 
 function Danger({ db, me }: { db: DbDetailData; me: Me }) {
@@ -922,8 +911,8 @@ function Danger({ db, me }: { db: DbDetailData; me: Me }) {
     <Card title="삭제">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="min-w-0">
-          <div className="text-[15px] font-semibold text-bad">데이터베이스 삭제</div>
-          <p className="mt-1 max-w-xl text-[14px] leading-relaxed text-muted">인스턴스를 멈추고 데이터 폴더와 서비스를 지웁니다. 연결된 앱의 DB 환경변수도 빠집니다.</p>
+          <div className="text-body font-semibold text-bad">데이터베이스 삭제</div>
+          <p className="mt-1 max-w-xl text-footnote text-muted">인스턴스를 멈추고 데이터 폴더와 서비스를 지웁니다. 연결된 앱의 DB 환경변수도 빠집니다.</p>
         </div>
         <Button variant="danger" icon={<Trash2 size={15} />} onClick={() => setOpen(true)}>
           DB 삭제
@@ -932,17 +921,17 @@ function Danger({ db, me }: { db: DbDetailData; me: Me }) {
       <DangerDialog
         open={open}
         onClose={() => setOpen(false)}
-        title={`${db.name} 삭제`}
+        title={`${josa(db.name, '을', '를')} 삭제할까요?`}
         target={db.slug}
         needTotp={me.totpEnabled}
         items={[
           <>
-            데이터 폴더 <code className="mono text-[13px]">{db.dataDir}</code> 의 모든 데이터
+            데이터 폴더 <code className="mono text-footnote">{db.dataDir}</code> 의 모든 데이터
           </>,
           `systemd 서비스 hrone-db-${db.slug}`,
           ...(db.linkedApps.length ? [`연결된 앱 ${db.linkedApps.map((a) => a.name).join(', ')} 의 DB 환경변수`] : []),
         ]}
-        options={<Toggle checked={backup} onChange={setBackup} label="삭제 전 최종 백업 만들기 (권장)" sub="서버 → 백업에 남습니다" />}
+        options={<Toggle checked={backup} onChange={setBackup} label="삭제 전 최종 백업 만들기 (권장)" sub="백업은 서버 화면의 백업 목록에 남습니다" />}
         onConfirm={async (auth) => {
           await api.post(`/api/databases/${db.slug}/terminate`, { ...auth, backup: ref.current });
           toast.ok('삭제했습니다');

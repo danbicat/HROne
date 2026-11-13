@@ -48,7 +48,7 @@ export function Button({
       className={cx(
         'inline-flex items-center justify-center gap-1.5 rounded-full font-medium transition-[background-color,filter,opacity] duration-150 select-none whitespace-nowrap',
         'disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer',
-        size === 'sm' ? 'h-8 px-3.5 text-[13px]' : size === 'lg' ? 'h-11 px-6 text-[15px]' : 'h-9 px-4 text-sm',
+        size === 'sm' ? 'h-8 px-3.5 text-footnote' : size === 'lg' ? 'h-11 px-6 text-headline' : 'h-9 px-4 text-body',
         VARIANTS[variant],
         className,
       )}
@@ -88,6 +88,7 @@ export function PageHeader({
   icon,
   back,
   barTitle,
+  wrap,
 }: {
   title: ReactNode;
   sub?: ReactNode;
@@ -97,6 +98,8 @@ export function PageHeader({
   back?: { to: string; label: string };
   /** 작은 제목을 따로 줄 때 (기본은 title) */
   barTitle?: ReactNode;
+  /** 제목이 문장이라 줄을 바꿔도 될 때 (홈의 상태 문장) */
+  wrap?: boolean;
 }) {
   const slot = useContext(BarSlot);
   const openSearch = useContext(SearchOpen);
@@ -116,7 +119,7 @@ export function PageHeader({
       <div className="relative mx-auto flex h-[52px] max-w-[1180px] items-center gap-2 px-4 sm:px-6 lg:px-10">
         <div className="flex min-w-0 flex-1 items-center">
           {back && (
-            <Link to={back.to} className="-ml-2 flex min-w-0 items-center rounded-full py-1 pr-2 text-[16px] text-accent-2 transition-opacity hover:opacity-70">
+            <Link to={back.to} className="-ml-2 flex min-w-0 items-center rounded-full py-1 pr-2 text-headline font-normal text-accent-2 transition-opacity hover:opacity-70">
               <ChevronLeft size={24} strokeWidth={2.2} className="shrink-0" />
               <span className="truncate">{back.label}</span>
             </Link>
@@ -125,7 +128,7 @@ export function PageHeader({
         <div
           aria-hidden={!compact}
           className={cx(
-            'pointer-events-none absolute left-1/2 max-w-[46%] -translate-x-1/2 truncate text-[15px] font-semibold transition-all duration-200',
+            'pointer-events-none absolute left-1/2 max-w-[46%] -translate-x-1/2 truncate text-body font-semibold transition-all duration-200',
             compact ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0',
           )}
         >
@@ -147,8 +150,8 @@ export function PageHeader({
       <div ref={ref} className="mb-7 flex min-w-0 items-center gap-4 pt-1">
         {icon && <div className="shrink-0">{icon}</div>}
         <div className="min-w-0">
-          <h1 className="truncate text-[30px] font-bold leading-tight tracking-[-0.025em] sm:text-[34px]">{title}</h1>
-          {sub && <div className="mt-1 text-[15px] text-muted">{sub}</div>}
+          <h1 className={cx('text-display max-sm:text-[28px]', wrap ? 'text-balance' : 'truncate')}>{title}</h1>
+          {sub && <div className="mt-1.5 text-body text-muted">{sub}</div>}
         </div>
       </div>
     </>
@@ -171,8 +174,8 @@ export function Card({ children, className, title, actions, pad = true, footer }
 export function SectionHeader({ title, actions }: { title?: ReactNode; actions?: ReactNode }) {
   return (
     <header className="mb-2 flex min-h-7 items-end justify-between gap-3 px-1">
-      <h2 className="min-w-0 text-[17px] font-semibold tracking-[-0.015em]">{title}</h2>
-      {actions && <div className="flex shrink-0 items-center gap-2 text-[13px]">{actions}</div>}
+      <h2 className="min-w-0 text-headline">{title}</h2>
+      {actions && <div className="flex shrink-0 items-center gap-2 text-footnote">{actions}</div>}
     </header>
   );
 }
@@ -217,10 +220,10 @@ export function Row({
       {icon && <span className="shrink-0">{icon}</span>}
       <span className="row-body flex min-h-[48px] min-w-0 flex-1 items-center gap-3 self-stretch py-2.5 pr-4">
         <span className="min-w-0 flex-1">
-          <span className={cx('block truncate text-[15px] leading-snug', danger ? 'text-bad' : 'text-fg')}>{title}</span>
-          {sub && <span className="mt-0.5 block truncate text-[13px] leading-snug text-muted">{sub}</span>}
+          <span className={cx('block truncate text-body leading-snug', danger ? 'text-bad' : 'text-fg')}>{title}</span>
+          {sub && <span className="mt-0.5 block truncate text-footnote leading-snug text-muted">{sub}</span>}
         </span>
-        {value !== undefined && <span className="max-w-[55%] shrink-0 truncate text-right text-[15px] text-muted">{value}</span>}
+        {value !== undefined && <span className="max-w-[55%] shrink-0 truncate text-right text-body text-muted">{value}</span>}
         {trailing}
         {(chevron ?? (interactive && !href)) && <ChevronRight size={17} strokeWidth={2.4} className="shrink-0 text-muted/50" />}
       </span>
@@ -256,7 +259,7 @@ export function Row({
 export function IconTile({ children, tone = 'accent', size = 30 }: { children: ReactNode; tone?: 'accent' | 'gray' | 'ok' | 'warn' | 'bad'; size?: number }) {
   const bg = { accent: 'bg-accent text-white', gray: 'bg-fill-2 text-fg-2', ok: 'bg-ok-dot text-white', warn: 'bg-warn-dot text-white', bad: 'bg-bad-dot text-white' }[tone];
   return (
-    <span className={cx('flex shrink-0 items-center justify-center rounded-[8px]', bg)} style={{ width: size, height: size }}>
+    <span className={cx('flex shrink-0 items-center justify-center rounded-tile', bg)} style={{ width: size, height: size }}>
       {children}
     </span>
   );
@@ -287,10 +290,10 @@ export function Fold({
         onClick={() => setOpen(!open)}
         className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-fill/60 cursor-pointer sm:px-5"
       >
-        {icon && <span className={cx('flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[8px] text-white [&_svg]:h-[17px] [&_svg]:w-[17px]', danger ? 'bg-bad-dot' : 'bg-accent')}>{icon}</span>}
+        {icon && <span className={cx('flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-tile text-white [&_svg]:h-[17px] [&_svg]:w-[17px]', danger ? 'bg-bad-dot' : 'bg-accent')}>{icon}</span>}
         <span className="min-w-0 flex-1">
-          <span className={cx('block text-[15px] font-medium', danger && 'text-bad')}>{title}</span>
-          {summary && !open && <span className="mt-0.5 block truncate text-[13px] text-muted">{summary}</span>}
+          <span className={cx('block text-body font-medium', danger && 'text-bad')}>{title}</span>
+          {summary && !open && <span className="mt-0.5 block truncate text-footnote text-muted">{summary}</span>}
         </span>
         <ChevronDown size={18} className={cx('shrink-0 text-muted transition-transform duration-200', open && 'rotate-180')} />
       </button>
@@ -304,7 +307,7 @@ export function Disclosure({ label, children, defaultOpen = false }: { label: Re
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div>
-      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="inline-flex items-center gap-1 text-[15px] text-accent-2 hover:opacity-75 cursor-pointer">
+      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="inline-flex items-center gap-1 text-body text-accent-2 hover:opacity-75 cursor-pointer">
         {label}
         <ChevronDown size={16} className={cx('transition-transform duration-200', open && 'rotate-180')} />
       </button>
@@ -342,8 +345,8 @@ export function Toggle({ checked, onChange, disabled, label, sub }: { checked: b
   return (
     <label className={cx('flex items-center justify-between gap-4', disabled ? 'opacity-50' : 'cursor-pointer')}>
       <span className="min-w-0">
-        {label && <span className="block text-[15px]">{label}</span>}
-        {sub && <span className="mt-0.5 block text-[13px] leading-relaxed text-muted">{sub}</span>}
+        {label && <span className="block text-body">{label}</span>}
+        {sub && <span className="mt-0.5 block text-footnote text-muted">{sub}</span>}
       </span>
       {sw}
     </label>
@@ -352,7 +355,7 @@ export function Toggle({ checked, onChange, disabled, label, sub }: { checked: b
 
 export function Segmented<T extends string>({ value, onChange, options, className }: { value: T; onChange: (v: T) => void; options: { value: T; label: ReactNode }[]; className?: string }) {
   return (
-    <div className={cx('inline-flex max-w-full overflow-x-auto rounded-[9px] bg-fill p-[2px] no-scrollbar', className)} role="tablist">
+    <div className={cx('inline-flex max-w-full overflow-x-auto rounded-control bg-fill p-[2px] no-scrollbar', className)} role="tablist">
       {options.map((o) => (
         <button
           key={o.value}
@@ -361,7 +364,7 @@ export function Segmented<T extends string>({ value, onChange, options, classNam
           aria-selected={value === o.value}
           onClick={() => onChange(o.value)}
           className={cx(
-            'flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[7px] px-3 py-[5px] text-[13px] font-medium transition-all duration-150 cursor-pointer',
+            'flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-tile px-3 py-[5px] text-footnote font-medium transition-all duration-150 cursor-pointer',
             value === o.value ? 'bg-seg text-fg shadow-seg' : 'text-fg-2 hover:text-fg',
           )}
         >
@@ -376,7 +379,7 @@ export function Segmented<T extends string>({ value, onChange, options, classNam
 export function Tabs<T extends string>({ value, onChange, tabs }: { value: T; onChange: (v: T) => void; tabs: { value: T; label: ReactNode; badge?: ReactNode }[] }) {
   return (
     <div className="mb-6 -mx-4 overflow-x-auto px-4 no-scrollbar sm:mx-0 sm:px-0">
-      <div className="inline-flex rounded-[10px] bg-fill p-[2px]" role="tablist">
+      <div className="inline-flex rounded-control bg-fill p-[2px]" role="tablist">
         {tabs.map((t) => (
           <button
             key={t.value}
@@ -385,7 +388,7 @@ export function Tabs<T extends string>({ value, onChange, tabs }: { value: T; on
             aria-selected={value === t.value}
             onClick={() => onChange(t.value)}
             className={cx(
-              'flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[8px] px-4 py-1.5 text-[14px] font-medium transition-all duration-150 cursor-pointer',
+              'flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-tile px-4 py-1.5 text-body font-medium transition-all duration-150 cursor-pointer',
               value === t.value ? 'bg-seg text-fg shadow-seg' : 'text-fg-2 hover:text-fg',
             )}
           >
@@ -420,7 +423,7 @@ const DOTS: Record<Tone, string> = {
 };
 
 export function Badge({ tone = 'gray', children, className }: { tone?: Tone; children: ReactNode; className?: string }) {
-  return <span className={cx('inline-flex items-center gap-1 rounded-full px-2 py-[2px] text-[12px] font-medium whitespace-nowrap', TONES[tone], className)}>{children}</span>;
+  return <span className={cx('inline-flex items-center gap-1 rounded-full px-2 py-[2px] text-caption font-medium whitespace-nowrap', TONES[tone], className)}>{children}</span>;
 }
 
 const STATE: Record<RunState, { label: string; tone: Tone; pulse?: boolean }> = {
@@ -443,7 +446,7 @@ export function StatusDot({ state, className }: { state: RunState | null | undef
 export function StatusBadge({ state }: { state: RunState | null | undefined }) {
   const s = STATE[state ?? 'not-deployed'];
   return (
-    <span className={cx('inline-flex items-center gap-1.5 whitespace-nowrap text-[13px] font-medium', s.tone === 'red' ? 'text-bad' : s.tone === 'gray' ? 'text-muted' : 'text-fg-2')}>
+    <span className={cx('inline-flex items-center gap-1.5 whitespace-nowrap text-footnote font-medium', s.tone === 'red' ? 'text-bad' : s.tone === 'gray' ? 'text-muted' : 'text-fg-2')}>
       <StatusDot state={state} />
       {s.label}
     </span>
@@ -460,7 +463,7 @@ export function Spinner({ size = 18, className }: { size?: number; className?: s
 
 export function Loading({ text = '불러오는 중...' }: { text?: string }) {
   return (
-    <div className="flex items-center justify-center gap-2 py-20 text-[15px] text-muted fade-in">
+    <div className="flex items-center justify-center gap-2 py-20 text-body text-muted fade-in">
       <Spinner />
       {text}
     </div>
@@ -469,7 +472,7 @@ export function Loading({ text = '불러오는 중...' }: { text?: string }) {
 
 export function ErrorBox({ error, onRetry }: { error: string; onRetry?: () => void }) {
   return (
-    <div className="mb-5 flex items-start justify-between gap-3 rounded-[14px] bg-bad/10 px-4 py-3 text-[14px] text-bad">
+    <div className="mb-5 flex items-start justify-between gap-3 rounded-card bg-bad/10 px-4 py-3 text-body text-bad">
       <span className="flex min-w-0 gap-2.5">
         <CircleAlert size={18} className="mt-px shrink-0" />
         <span className="whitespace-pre-wrap break-words">{error}</span>
@@ -496,7 +499,7 @@ const NOTICE_ICON: Record<Tone, string> = {
 export function Notice({ tone = 'blue', title, children, icon }: { tone?: Tone; title?: ReactNode; children?: ReactNode; icon?: ReactNode }) {
   const bg = { gray: 'bg-fill/70', green: 'bg-ok/8', red: 'bg-bad/8', yellow: 'bg-warn/10', blue: 'bg-accent/8', purple: 'bg-accent/8' }[tone];
   return (
-    <div className={cx('flex gap-3 rounded-[14px] px-4 py-3 text-[14px]', bg)}>
+    <div className={cx('flex gap-3 rounded-card px-4 py-3 text-body', bg)}>
       {icon && <div className={cx('mt-0.5 shrink-0', NOTICE_ICON[tone])}>{icon}</div>}
       <div className="min-w-0 leading-relaxed">
         {title && <div className="font-semibold text-fg">{title}</div>}
@@ -510,8 +513,8 @@ export function Empty({ icon, title, children, action }: { icon?: ReactNode; tit
   return (
     <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
       {icon && <div className="mb-4 text-muted/70 [&_svg]:h-11 [&_svg]:w-11 [&_svg]:stroke-[1.4]">{icon}</div>}
-      <div className="text-[19px] font-semibold tracking-[-0.015em]">{title}</div>
-      {children && <div className="mt-2 max-w-md text-[15px] leading-relaxed text-muted">{children}</div>}
+      <div className="text-title">{title}</div>
+      {children && <div className="mt-2 max-w-md text-body text-muted">{children}</div>}
       {action && <div className="mt-6">{action}</div>}
     </div>
   );
@@ -530,7 +533,7 @@ export function Meter({ value, tone }: { value: number; tone?: 'auto' | Tone }) 
 /** 이름 ··· 값 (iOS 정보 화면처럼 줄마다 구분선) */
 export function KV({ items }: { items: [ReactNode, ReactNode][] }) {
   return (
-    <dl className="-my-2 text-[15px]">
+    <dl className="-my-2 text-body">
       {items.map(([k, v], i) => (
         <div key={i} className={cx('flex items-baseline justify-between gap-6 py-2.5', i > 0 && 'hairline-t')}>
           <dt className="shrink-0 text-muted">{k}</dt>
@@ -538,6 +541,54 @@ export function KV({ items }: { items: [ReactNode, ReactNode][] }) {
         </div>
       ))}
     </dl>
+  );
+}
+
+export interface Stat {
+  label: ReactNode;
+  value: ReactNode;
+  unit?: ReactNode;
+  sub?: ReactNode;
+  /** 누르면 갈 곳 */
+  to?: string;
+  /** 숫자 아래 작은 그래프나 막대 */
+  chart?: ReactNode;
+  tone?: 'bad' | 'warn';
+}
+
+/**
+ * 요약 숫자 한 줄. 카드 여러 장 대신 칸 하나를 가는 선으로 나눈다.
+ * 폰에서는 두 칸씩, 넓은 화면에서는 한 줄. 개수가 홀수면 폰에서 마지막 칸이 줄 전체를 쓴다.
+ */
+export function Stats({ items, className }: { items: Stat[]; className?: string }) {
+  const cols = items.length >= 4 ? 'grid-cols-2 lg:grid-cols-4' : items.length === 3 ? 'grid-cols-2 sm:grid-cols-3' : items.length === 2 ? 'grid-cols-2' : 'grid-cols-1';
+  const odd = items.length % 2 === 1 && items.length > 1;
+  return (
+    <div className={cx('grid gap-px overflow-hidden rounded-card bg-line shadow-card', cols, className)}>
+      {items.map((s, i) => {
+        const body = (
+          <>
+            <span className="block text-footnote text-muted">{s.label}</span>
+            <span className="mt-0.5 flex items-baseline gap-0.5 whitespace-nowrap">
+              <span className={cx('text-title', s.tone === 'bad' && 'text-bad', s.tone === 'warn' && 'text-warn')}>{s.value}</span>
+              {s.unit && <span className="text-body font-semibold text-muted">{s.unit}</span>}
+            </span>
+            {s.sub && <span className="mt-0.5 block truncate text-footnote text-muted">{s.sub}</span>}
+            {s.chart && <span className="mt-3 block">{s.chart}</span>}
+          </>
+        );
+        const cls = cx('flex min-w-0 flex-col bg-surface px-4 py-3.5 sm:px-5 sm:py-4', odd && i === items.length - 1 && 'max-sm:col-span-2');
+        return s.to ? (
+          <Link key={i} to={s.to} className={cx(cls, 'transition-colors hover:bg-surface-2')}>
+            {body}
+          </Link>
+        ) : (
+          <div key={i} className={cls}>
+            {body}
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -576,8 +627,8 @@ export function CopyField({ value, secret, mono = true, onReveal }: { value: str
   const [val, setVal] = useState(value);
   useEffect(() => setVal(value), [value]);
   return (
-    <div className="flex items-center gap-1 rounded-[10px] bg-fill pl-3 pr-1">
-      <div className={cx('min-w-0 flex-1 truncate py-2 text-[13px]', mono && 'mono')}>{shown ? val : '•'.repeat(Math.min(24, Math.max(8, val.length)))}</div>
+    <div className="flex items-center gap-1 rounded-control bg-fill pl-3 pr-1">
+      <div className={cx('min-w-0 flex-1 truncate py-2 text-footnote', mono && 'mono')}>{shown ? val : '•'.repeat(Math.min(24, Math.max(8, val.length)))}</div>
       {secret && (
         <IconButton
           title={shown ? '숨기기' : '보기'}
@@ -637,7 +688,7 @@ export function Modal({
       <div
         role="dialog"
         aria-modal="true"
-        className="sheet-in flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-[22px] bg-surface shadow-pop sm:rounded-[22px]"
+        className="sheet-in flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-sheet bg-surface shadow-pop sm:rounded-sheet"
         style={{ maxWidth: width }}
       >
         {/* 폰에서 위로 끌어 올린 시트임을 알려 주는 손잡이 */}
@@ -645,7 +696,7 @@ export function Modal({
           <span className="h-[5px] w-9 rounded-full bg-fill-2" />
         </div>
         <header className="flex items-center justify-between gap-3 px-5 pb-2 pt-3 sm:pt-5">
-          <h3 className="min-w-0 text-[19px] font-semibold tracking-[-0.015em]">{title}</h3>
+          <h3 className="min-w-0 text-headline">{title}</h3>
           {dismissable && (
             <button type="button" title="닫기" aria-label="닫기" onClick={onClose} className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-fill text-muted transition-colors hover:bg-fill-2 hover:text-fg cursor-pointer">
               <X size={16} strokeWidth={2.6} />
@@ -693,9 +744,9 @@ export function ConfirmHost({ children }: { children: ReactNode }) {
       {opts &&
         createPortal(
           <div className="fade-in fixed inset-0 z-[55] flex items-center justify-center bg-backdrop p-6" onMouseDown={(e) => e.target === e.currentTarget && done(false)}>
-            <div role="alertdialog" aria-modal="true" className="sheet-in w-full max-w-[340px] rounded-[20px] bg-surface p-5 text-center shadow-pop max-sm:[animation-name:pop-in]">
-              <h3 className="text-[17px] font-semibold tracking-[-0.01em]">{opts.title}</h3>
-              {opts.body && <div className="mt-2 text-[14px] leading-relaxed text-fg-2">{opts.body}</div>}
+            <div role="alertdialog" aria-modal="true" className="sheet-in w-full max-w-[340px] rounded-sheet bg-surface p-5 text-center shadow-pop max-sm:[animation-name:pop-in]">
+              <h3 className="text-headline">{opts.title}</h3>
+              {opts.body && <div className="mt-1.5 text-footnote text-fg-2">{opts.body}</div>}
               <div className="mt-5 grid grid-cols-2 gap-2">
                 <Button variant="secondary" onClick={() => done(false)}>
                   취소
@@ -746,7 +797,7 @@ export function ToastHost() {
   return createPortal(
     <div className="pointer-events-none fixed inset-x-0 top-[max(0.75rem,env(safe-area-inset-top))] z-[60] flex flex-col items-center gap-2 px-4" aria-live="polite">
       {items.map((t) => (
-        <div key={t.id} className="toast-in chrome pointer-events-auto flex max-w-md items-start gap-2.5 rounded-[18px] px-4 py-3 text-[14px] shadow-pop" role="status">
+        <div key={t.id} className="toast-in chrome pointer-events-auto flex max-w-md items-start gap-2.5 rounded-sheet px-4 py-3 text-body shadow-pop" role="status">
           {t.tone === 'ok' ? (
             <CircleCheck size={18} className="mt-px shrink-0 text-ok" />
           ) : t.tone === 'bad' ? (

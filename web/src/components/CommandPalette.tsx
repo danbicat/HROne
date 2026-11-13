@@ -23,6 +23,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { AppSummary, DbSummary } from '../pages/Dashboard';
 import { api, errorText } from '../lib/api';
+import { josa } from '../lib/format';
 import { navigate } from '../lib/router';
 import { useLive } from '../lib/store';
 import { cx, toast, useConfirm } from './ui';
@@ -50,7 +51,7 @@ const PAGES: { label: string; to: string; icon: ReactNode; keys: string }[] = [
   { label: '백업', to: '/system?tab=backups', icon: <Archive size={15} />, keys: 'backup restore 복원' },
   { label: '서버 고급 설정', to: '/system?tab=advanced', icon: <SlidersHorizontal size={15} />, keys: 'swap timezone tailscale cloudflared 스왑 시간대' },
   { label: '내 계정', to: '/settings', icon: <KeyRound size={15} />, keys: 'account password otp 2fa 비밀번호 계정 설정' },
-  { label: 'GitHub · 알림', to: '/settings?tab=connect', icon: <Bell size={15} />, keys: 'github token discord webhook 토큰 디스코드' },
+  { label: '연결', to: '/settings?tab=connect', icon: <Bell size={15} />, keys: 'github token discord webhook 토큰 디스코드 알림 github discord' },
   { label: '패널 접속', to: '/settings?tab=access', icon: <Globe size={15} />, keys: 'access ip users 사용자 접속' },
   { label: '업데이트', to: '/settings?tab=update', icon: <RefreshCw size={15} />, keys: 'update version 버전' },
   { label: '활동 기록', to: '/settings?tab=audit', icon: <FileClock size={15} />, keys: 'audit log history 기록' },
@@ -114,7 +115,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
           onlyOnSearch: true,
           run: async () => {
             onClose();
-            if (await confirm({ title: `${a.name} 정지`, body: '앱을 정지합니다. 자동 배포는 코드만 받아 두고 시작하지 않습니다.', confirm: '정지' })) await act('stop', '정지했습니다')();
+            if (await confirm({ title: `${josa(a.name, '을', '를')} 정지할까요?`, body: '자동 배포는 새 코드를 받아 두기만 하고 앱을 시작하지 않습니다.', confirm: '정지' })) await act('stop', '정지했습니다')();
           },
         });
       else out.push({ id: `x:${a.slug}:start`, group: '동작', label: `${a.name} 시작`, icon: <Play size={15} />, keys: `${a.slug} start`, onlyOnSearch: true, run: act('start', '시작했습니다') });
@@ -122,7 +123,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
         id: `x:${a.slug}:deploy`,
         group: '동작',
         label: `${a.name} 지금 배포`,
-        sub: '최신 커밋을 받아 다시 배포',
+        sub: '최신 커밋을 받아 다시 배포합니다',
         icon: <Rocket size={15} />,
         keys: `${a.slug} deploy redeploy 재배포`,
         onlyOnSearch: true,
@@ -143,7 +144,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
         id: `d:${d.slug}`,
         group: '데이터베이스',
         label: d.name,
-        sub: `${d.type === 'mariadb' ? 'MariaDB' : 'Redis'} · :${d.port}`,
+        sub: `${d.type === 'mariadb' ? 'MariaDB' : 'Redis'}, 포트 ${d.port}`,
         icon: <Database size={15} />,
         keys: `${d.slug} ${d.type}`,
         run: go(`/databases/${d.slug}`),
@@ -197,7 +198,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
   let lastGroup = '';
   return createPortal(
     <div className="fade-in fixed inset-0 z-[58] flex items-start justify-center bg-backdrop px-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:pt-[12vh]" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div role="dialog" aria-label="검색" className="toast-in flex max-h-[min(560px,80dvh)] w-full max-w-[620px] flex-col overflow-hidden rounded-[18px] bg-surface shadow-pop" onKeyDown={onKey}>
+      <div role="dialog" aria-label="검색" className="toast-in flex max-h-[min(560px,80dvh)] w-full max-w-[620px] flex-col overflow-hidden rounded-sheet bg-surface shadow-pop" onKeyDown={onKey}>
         <div className="hairline-b flex items-center gap-3 px-4">
           <Search size={20} className="shrink-0 text-muted" />
           <input
@@ -205,30 +206,30 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="앱, 데이터베이스, 메뉴 또는 동작 검색"
-            className="h-14 min-w-0 flex-1 bg-transparent text-[18px] outline-none placeholder:text-muted/70"
+            className="h-14 min-w-0 flex-1 bg-transparent text-headline font-normal outline-none placeholder:text-muted/70"
             aria-label="검색어"
           />
-          <kbd className="hidden rounded-[6px] bg-fill px-1.5 py-0.5 font-sans text-[11px] text-muted sm:block">esc</kbd>
+          <kbd className="hidden rounded-tile bg-fill px-1.5 py-0.5 font-sans text-caption text-muted sm:block">esc</kbd>
         </div>
         <div ref={listRef} className="overflow-y-auto overscroll-contain px-2 pb-2">
-          {shown.length === 0 && <div className="px-3 py-10 text-center text-[15px] text-muted">"{q}" 와 맞는 항목이 없습니다</div>}
+          {shown.length === 0 && <div className="px-3 py-10 text-center text-body text-muted">"{q}"에 맞는 항목이 없습니다. 앱 이름, 메뉴 이름 또는 동작으로 검색하세요</div>}
           {shown.map((it, idx) => {
             const head = it.group !== lastGroup ? it.group : null;
             lastGroup = it.group;
             const active = idx === sel;
             return (
               <div key={it.id}>
-                {head && <div className="px-3 pb-1 pt-3 text-[12px] font-semibold text-muted">{head}</div>}
+                {head && <div className="px-3 pb-1 pt-3 text-caption font-semibold text-muted">{head}</div>}
                 <button
                   type="button"
                   data-idx={idx}
                   onMouseMove={() => setSel(idx)}
                   onClick={() => void it.run()}
-                  className={cx('flex w-full items-center gap-3 rounded-[10px] px-3 py-2 text-left cursor-pointer', active ? 'bg-accent text-white' : 'text-fg')}
+                  className={cx('flex w-full items-center gap-3 rounded-control px-3 py-2 text-left cursor-pointer', active ? 'bg-accent text-white' : 'text-fg')}
                 >
-                  <span className={cx('flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px]', active ? 'bg-white/20 text-white' : 'bg-fill text-fg-2')}>{it.icon}</span>
-                  <span className="min-w-0 flex-1 truncate text-[15px]">{it.label}</span>
-                  {it.sub && <span className={cx('hidden shrink-0 truncate text-[13px] sm:block', active ? 'text-white/75' : 'text-muted')}>{it.sub}</span>}
+                  <span className={cx('flex h-7 w-7 shrink-0 items-center justify-center rounded-tile', active ? 'bg-white/20 text-white' : 'bg-fill text-fg-2')}>{it.icon}</span>
+                  <span className="min-w-0 flex-1 truncate text-body">{it.label}</span>
+                  {it.sub && <span className={cx('hidden shrink-0 truncate text-footnote sm:block', active ? 'text-white/75' : 'text-muted')}>{it.sub}</span>}
                   {active && <CornerDownLeft size={14} className="shrink-0 text-white/80" />}
                 </button>
               </div>

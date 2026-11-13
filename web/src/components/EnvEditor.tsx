@@ -2,7 +2,7 @@ import { Eye, EyeOff, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../lib/api';
 import { useApi } from '../lib/store';
-import { Badge, Button, Card, ErrorBox, Fold, IconButton, Loading, Segmented, toast, Toggle, cx } from './ui';
+import { Button, Card, ErrorBox, Fold, IconButton, Loading, Segmented, toast, Toggle, cx } from './ui';
 
 interface EnvVar {
   key: string;
@@ -63,7 +63,7 @@ export function EnvEditor({ slug, running }: { slug: string; running: boolean })
   }, [data, rows, raw, mode]);
 
   if (loading) return <Loading />;
-  if (error || !data) return <ErrorBox error={error ?? '불러오기 실패'} onRetry={reload} />;
+  if (error || !data) return <ErrorBox error={error ?? '환경변수를 불러오지 못했습니다. 다시 시도하세요.'} onRetry={reload} />;
 
   const switchMode = (m: 'table' | 'raw') => {
     if (m === mode) return;
@@ -86,7 +86,7 @@ export function EnvEditor({ slug, running }: { slug: string; running: boolean })
     try {
       const vars = mode === 'table' ? rows.filter((r) => r.key.trim()) : parseDotenv(raw);
       const r = await api.put<{ count: number; restartNeeded: boolean }>(`/api/apps/${slug}/env`, { vars, restart: restart && running });
-      toast.ok(`환경변수 ${r.count}개 저장${restart && running ? ' · 앱을 재시작했습니다' : r.restartNeeded ? ' · 재시작하면 반영됩니다' : ''}`);
+      toast.ok(restart && running ? `환경변수 ${r.count}개를 저장하고 앱을 재시작했습니다` : `환경변수 ${r.count}개를 저장했습니다${r.restartNeeded ? '. 재시작하면 반영됩니다' : ''}`);
       reload();
     } catch (e) {
       toast.error((e as Error).message);
@@ -164,6 +164,7 @@ export function EnvEditor({ slug, running }: { slug: string; running: boolean })
                             setReveal(n);
                           }}
                           title={secret ? '보기' : '숨기기'}
+                          aria-label={secret ? '값 보기' : '값 숨기기'}
                         >
                           {secret ? <Eye size={15} /> : <EyeOff size={15} />}
                         </button>
@@ -180,13 +181,13 @@ export function EnvEditor({ slug, running }: { slug: string; running: boolean })
               <Button size="sm" variant="plain" icon={<Plus size={15} />} onClick={() => setRows([...rows, { key: '', value: '' }])}>
                 추가
               </Button>
-              <span className="text-[13px] text-muted">KEY 칸에 .env 내용을 통째로 붙여넣어도 됩니다</span>
+              <span className="text-footnote text-muted">KEY 칸에 .env 내용을 통째로 붙여넣어도 됩니다</span>
             </div>
           </div>
         ) : (
           <div className="p-3 sm:p-4">
             <textarea
-              className="input mono min-h-[320px] text-[13px] leading-relaxed"
+              className="input mono min-h-[320px] text-footnote"
               value={raw}
               onChange={(e) => setRaw(e.target.value)}
               spellCheck={false}
@@ -205,9 +206,9 @@ export function EnvEditor({ slug, running }: { slug: string; running: boolean })
       </Card>
 
       {data.linked.length > 0 && (
-        <Card title="연결된 DB 가 넣어 주는 변수" actions={<Badge tone="purple">자동</Badge>} pad={false} footer="같은 이름을 위 표에 직접 넣으면 그 값이 우선합니다.">
+        <Card title="연결된 DB가 넣어 주는 변수" pad={false} footer="같은 이름을 위 표에 직접 넣으면 그 값이 우선합니다.">
           {data.linked.map((v, i) => (
-            <div key={v.key} className={cx('mono flex flex-col gap-0.5 px-4 py-2.5 text-[13px] sm:flex-row sm:gap-3 sm:px-5', i > 0 && 'hairline-t')}>
+            <div key={v.key} className={cx('mono flex flex-col gap-0.5 px-4 py-2.5 text-footnote sm:flex-row sm:gap-3 sm:px-5', i > 0 && 'hairline-t')}>
               <span className="shrink-0 text-fg sm:w-56">{v.key}</span>
               <span className="min-w-0 truncate text-muted">{SENSITIVE.test(v.key) ? '••••••••' : v.value}</span>
             </div>
@@ -215,10 +216,10 @@ export function EnvEditor({ slug, running }: { slug: string; running: boolean })
         </Card>
       )}
 
-      <Fold title="패널이 기본으로 넣는 변수" summary={`${data.system.length}개 · PORT, HOST 등`}>
+      <Fold title="패널이 기본으로 넣는 변수" summary={`PORT, HOST 등 ${data.system.length}개`}>
         <div className="-mx-4 -mb-5 sm:-mx-5">
           {data.system.map((v) => (
-            <div key={v.key} className="hairline-t mono flex flex-col gap-0.5 px-4 py-2.5 text-[13px] sm:flex-row sm:gap-3 sm:px-5">
+            <div key={v.key} className="hairline-t mono flex flex-col gap-0.5 px-4 py-2.5 text-footnote sm:flex-row sm:gap-3 sm:px-5">
               <span className="shrink-0 text-fg-2 sm:w-56">{v.key}</span>
               <span className="min-w-0 break-all text-muted">{v.value}</span>
             </div>

@@ -2,7 +2,8 @@ import { ArrowRight, Check, CircleAlert, GitBranch, Lock, Rocket, Unlock } from 
 import { useEffect, useMemo, useState } from 'react';
 import { Badge, Button, Card, CopyField, Disclosure, Field, IconTile, List, Notice, PageHeader, Row, SectionHeader, Segmented, Toggle, cx, toast } from '../components/ui';
 import { api, errorText } from '../lib/api';
-import { navigate, useTitle } from '../lib/router';
+import { josa } from '../lib/format';
+import { Link, navigate, useTitle } from '../lib/router';
 import { useApi } from '../lib/store';
 import type { AppSummary, DbSummary } from './Dashboard';
 
@@ -206,7 +207,7 @@ export function AppNew() {
           autoRollback,
         },
       });
-      toast.ok('앱을 만들었습니다. 첫 배포를 시작합니다.');
+      toast.ok('앱을 만들고 첫 배포를 시작했습니다');
       navigate(`/apps/${r.app.slug}?tab=deploys&deploy=${r.deployId}`);
     } catch (e) {
       toast.error(errorText(e));
@@ -230,7 +231,7 @@ export function AppNew() {
         : !SLUG_RE.test(slug)
           ? '고급 설정의 앱 ID 를 확인하세요 (영문 소문자로 시작, 2~24자).'
           : taken.has(slug)
-            ? `앱 ID ${slug} 는 이미 있습니다. 고급 설정에서 바꾸세요.`
+            ? `앱 ID ${josa(slug, '은', '는')} 이미 있습니다. 고급 설정에서 바꾸세요.`
             : null;
 
   const pickRepo = (r: { fullName: string; private: boolean; defaultBranch: string }) => {
@@ -270,12 +271,12 @@ export function AppNew() {
             </div>
 
             {repos && !repos.tokenSet && !inspect && !checkError && (
-              <p className="text-[13px] leading-relaxed text-muted">
+              <p className="text-footnote text-muted">
                 공개 저장소는 주소만 넣으면 됩니다. 비공개 저장소는{' '}
-                <a href="/settings?tab=connect" onClick={(e) => (e.preventDefault(), navigate('/settings?tab=connect'))} className="text-accent-2 hover:opacity-75">
-                  설정에 GitHub 토큰
-                </a>
-                을 넣어 두면 여기서 목록으로 고를 수 있습니다.
+                <Link to="/settings?tab=connect" target="_blank" rel="noreferrer" className="text-accent-2 hover:opacity-75">
+                  연결 설정
+                </Link>
+                에 GitHub 토큰을 넣어 두면 여기서 목록으로 고를 수 있습니다.
               </p>
             )}
 
@@ -286,7 +287,7 @@ export function AppNew() {
                 </Notice>
                 {needsAuth && (
                   <div className="hairline-t -mx-5 space-y-4 px-5 pt-4">
-                    <div className="text-[15px] font-medium">비공개 저장소라면 접근 방법을 고르세요.</div>
+                    <div className="text-body font-medium">비공개 저장소라면 접근 방법을 고르세요.</div>
                     <Segmented
                       value={auth === 'deploykey' ? 'deploykey' : 'token'}
                       onChange={(v) => setAuth(v)}
@@ -296,11 +297,21 @@ export function AppNew() {
                       ]}
                     />
                     {auth !== 'deploykey' ? (
-                      <Field hint="Fine-grained 토큰에 이 저장소의 Contents: Read 권한이면 충분합니다. 설정 → GitHub · 알림에 넣어 두면 다음부터는 입력하지 않아도 됩니다.">
+                      <Field
+                        hint={
+                          <>
+                            Fine-grained 토큰에 이 저장소의 Contents: Read 권한이면 충분합니다.{' '}
+                            <Link to="/settings?tab=connect" target="_blank" rel="noreferrer" className="text-accent-2 hover:opacity-75">
+                              연결 설정
+                            </Link>
+                            에 넣어 두면 다음부터는 입력하지 않아도 됩니다.
+                          </>
+                        }
+                      >
                         <input className="input mono" type="password" placeholder="github_pat_..." value={gitToken} onChange={(e) => setGitToken(e.target.value)} autoComplete="off" />
                       </Field>
                     ) : (
-                      <div className="space-y-2 text-[14px] leading-relaxed text-fg-2">
+                      <div className="space-y-2 text-body text-fg-2">
                         <div>GitHub 저장소 → Settings → Deploy keys → Add deploy key 에 아래 공개키를 넣으세요 (쓰기 권한은 필요 없습니다).</div>
                         {key ? <CopyField value={key.publicKey} /> : <span className="text-muted">키 만드는 중...</span>}
                       </div>
@@ -320,17 +331,23 @@ export function AppNew() {
             )}
 
             {det && (
-              <div className="flex flex-wrap items-center gap-2 text-[15px]">
-                <span className="text-fg-2">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body text-fg-2">
+                <span>
                   <span className="mono">{branch || inspect?.defaultBranch}</span> 브랜치
                 </span>
-                {det.runtime ? <Badge tone="green">{det.runtime === 'node' ? 'Node.js' : 'Python'} {det.runtimeVersion ?? ''}</Badge> : <Badge tone="red">런타임을 찾지 못함</Badge>}
-                {det.packageManager && <Badge>{det.packageManager}</Badge>}
-                {auth !== 'none' && <Badge tone="yellow">{auth === 'token' ? '토큰으로 접근' : '배포 키로 접근'}</Badge>}
+                {det.runtime ? (
+                  <span>
+                    {det.runtime === 'node' ? 'Node.js' : 'Python'} {det.runtimeVersion ?? ''}
+                  </span>
+                ) : (
+                  <Badge tone="red">런타임을 찾지 못함</Badge>
+                )}
+                {det.packageManager && <span>{det.packageManager}</span>}
+                {auth !== 'none' && <span>{auth === 'token' ? '토큰으로 접근' : '배포 키로 접근'}</span>}
               </div>
             )}
             {det && det.notes.length > 0 && (
-              <ul className="space-y-1 text-[13px] leading-relaxed text-warn">
+              <ul className="space-y-1 text-footnote text-warn">
                 {det.notes.map((n, i) => (
                   <li key={i}>• {n}</li>
                 ))}
@@ -348,7 +365,7 @@ export function AppNew() {
                   key={r.fullName}
                   onClick={() => pickRepo(r)}
                   icon={<IconTile tone="gray">{r.private ? <Lock size={15} /> : <Unlock size={15} />}</IconTile>}
-                  title={<span className="mono text-[14px]">{r.fullName}</span>}
+                  title={<span className="mono">{r.fullName}</span>}
                   sub={r.description ?? (r.private ? '비공개' : '공개')}
                 />
               ))}
@@ -369,7 +386,7 @@ export function AppNew() {
               </div>
 
               <Field label="GitHub 에 푸시하면">
-                <div className="overflow-hidden rounded-[12px] bg-fill/60" role="radiogroup">
+                <div className="overflow-hidden rounded-control bg-fill/60" role="radiogroup">
                   {MODES.map((m, i) => (
                     <button
                       key={m.value}
@@ -380,8 +397,8 @@ export function AppNew() {
                       className={cx('flex w-full items-center gap-3 px-4 py-3 text-left transition-colors cursor-pointer hover:bg-fill', i > 0 && 'hairline-t')}
                     >
                       <span className="min-w-0 flex-1">
-                        <span className="block text-[15px] font-medium">{m.label}</span>
-                        <span className="mt-0.5 block text-[13px] leading-relaxed text-muted">{m.desc}</span>
+                        <span className="block text-body font-medium">{m.label}</span>
+                        <span className="mt-0.5 block text-footnote text-muted">{m.desc}</span>
                       </span>
                       <Check size={18} strokeWidth={2.6} className={cx('shrink-0 text-accent-2', mode === m.value ? 'opacity-100' : 'opacity-0')} />
                     </button>
@@ -390,7 +407,7 @@ export function AppNew() {
               </Field>
               {mode === 'delay' && (
                 <div className="flex flex-wrap items-center gap-2">
-                  <input className="input mono w-24" inputMode="numeric" value={delay} onChange={(e) => setDelay(Number(e.target.value.replace(/\D/g, '')) || 1)} />
+                  <input className="input w-24" inputMode="numeric" value={delay} onChange={(e) => setDelay(Number(e.target.value.replace(/\D/g, '')) || 1)} />
                   <Segmented
                     value={delayUnit}
                     onChange={setDelayUnit}
@@ -399,30 +416,30 @@ export function AppNew() {
                       { value: 'min', label: '분' },
                     ]}
                   />
-                  <span className="text-[14px] text-muted">뒤에 배포</span>
+                  <span className="text-body text-muted">뒤에 배포</span>
                 </div>
               )}
 
               <div className="hairline-t -mx-5 space-y-5 px-5 pt-5">
                 <Disclosure label={<>환경변수 <span className="font-normal text-muted">{envText.trim() ? `${envText.split('\n').filter((l) => /^\s*[\w.]+\s*=/.test(l)).length}개` : '(선택)'}</span></>}>
-                  <textarea className="input mono min-h-[140px] text-[13px]" value={envText} onChange={(e) => setEnvText(e.target.value)} placeholder={'# .env 내용을 그대로 붙여넣으세요\nDISCORD_TOKEN=...\nAPI_KEY=...'} spellCheck={false} />
+                  <textarea className="input mono min-h-[140px] text-footnote" value={envText} onChange={(e) => setEnvText(e.target.value)} placeholder={'# .env 내용을 그대로 붙여넣으세요\nDISCORD_TOKEN=...\nAPI_KEY=...'} spellCheck={false} />
                 </Disclosure>
 
                 {(dbs ?? []).length > 0 && (
                   <Disclosure label={<>데이터베이스 연결 <span className="font-normal text-muted">{links.length ? `${links.length}개` : '(선택)'}</span></>}>
-                    <div className="overflow-hidden rounded-[12px] bg-fill/60">
+                    <div className="overflow-hidden rounded-control bg-fill/60">
                       {dbs!.map((d, i) => (
                         <div key={d.slug} className={cx('px-4 py-3', i > 0 && 'hairline-t')}>
                           <Toggle
                             checked={links.includes(d.slug)}
                             onChange={(v) => setLinks(v ? [...links, d.slug] : links.filter((x) => x !== d.slug))}
                             label={
-                              <span className="flex items-center gap-2">
+                              <span className="flex items-center gap-x-3">
                                 <span className="font-medium">{d.name}</span>
-                                <Badge>{d.type === 'mariadb' ? 'MariaDB' : 'Redis'}</Badge>
+                                <span className="text-footnote text-muted">{d.type === 'mariadb' ? 'MariaDB' : 'Redis'}</span>
                               </span>
                             }
-                            sub={`${d.type === 'mariadb' ? 'DATABASE_URL, DB_HOST ...' : 'REDIS_URL ...'} 자동으로 들어감`}
+                            sub={`${d.type === 'mariadb' ? 'DATABASE_URL, DB_HOST 등' : 'REDIS_URL 등'}이 환경변수로 들어갑니다`}
                           />
                         </div>
                       ))}
@@ -459,7 +476,7 @@ export function AppNew() {
                         )}
                       </div>
                     </Field>
-                    <Field label="앱 ID" hint="폴더·서비스 이름에 쓰이며 나중에 바꿀 수 없습니다">
+                    <Field label="앱 ID" hint="폴더와 서비스 이름에 쓰이며 나중에 바꿀 수 없습니다">
                       <input
                         className="input mono"
                         value={slug}
@@ -510,7 +527,7 @@ export function AppNew() {
                       <input className="input mono" value={healthPath} onChange={(e) => setHealthPath(e.target.value)} placeholder="/health" />
                     </Field>
                     <Field label="새 커밋 확인 주기 (초)" hint="0 = 끄기 (웹후크만)">
-                      <input className="input mono" inputMode="numeric" value={poll} onChange={(e) => setPollSec(Number(e.target.value.replace(/\D/g, '')))} />
+                      <input className="input" inputMode="numeric" value={poll} onChange={(e) => setPollSec(Number(e.target.value.replace(/\D/g, '')))} />
                     </Field>
                   </div>
                   <div className="grid gap-5 sm:grid-cols-2">
@@ -521,7 +538,7 @@ export function AppNew() {
                       <input className="input mono" value={discord} onChange={(e) => setDiscord(e.target.value)} placeholder="https://discord.com/api/webhooks/..." />
                     </Field>
                   </div>
-                  <div className="overflow-hidden rounded-[12px] bg-fill/60">
+                  <div className="overflow-hidden rounded-control bg-fill/60">
                     <div className="px-4 py-3">
                       <Toggle checked={autoRollback} onChange={setAutoRollback} label="실패하면 이전 버전으로 되돌리기" />
                     </div>
@@ -534,8 +551,13 @@ export function AppNew() {
 
               {blocker && <Notice tone="yellow">{blocker}</Notice>}
               <div className="hairline-t -mx-5 flex flex-wrap items-center justify-between gap-3 px-5 pt-5">
-                <span className="text-[13px] text-muted">
-                  ID <span className="mono text-fg-2">{slug}</span> · {runtime === 'node' ? 'Node.js' : 'Python'} {version}
+                <span className="flex flex-wrap gap-x-3 text-footnote text-muted">
+                  <span>
+                    ID <span className="mono text-fg-2">{slug}</span>
+                  </span>
+                  <span>
+                    {runtime === 'node' ? 'Node.js' : 'Python'} {version}
+                  </span>
                 </span>
                 <Button variant="primary" size="lg" className="max-sm:w-full" icon={<Rocket size={17} />} onClick={create} loading={creating} disabled={!!blocker}>
                   배포하기
@@ -545,7 +567,7 @@ export function AppNew() {
           </Card>
         )}
 
-        {!det && <p className="px-1 text-center text-[14px] text-muted">저장소를 확인하면 런타임, 설치·시작 명령을 자동으로 채워 드립니다.</p>}
+        {!det && <p className="px-1 text-center text-body text-muted">저장소를 확인하면 런타임, 설치와 시작 명령을 자동으로 채워 드립니다.</p>}
       </div>
     </div>
   );

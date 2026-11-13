@@ -101,7 +101,7 @@ export function LogViewer({ kind, slug, height = 'calc(100vh - 300px)' }: { kind
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-[180px] flex-1">
           <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-          <input className="input h-9 rounded-full pl-9 text-[14px]" placeholder="로그 검색" value={filter} onChange={(e) => setFilter(e.target.value)} />
+          <input className="input h-9 rounded-full pl-9 text-body" placeholder="로그 검색" value={filter} onChange={(e) => setFilter(e.target.value)} />
         </div>
         <div className="flex items-center gap-0.5 rounded-full bg-fill p-0.5">
           <IconButton title="시스템 메시지" aria-pressed={systemLines} onClick={() => setSystemLines(!systemLines)} className={cx(systemLines && 'bg-seg text-fg shadow-seg hover:bg-seg')}>
@@ -124,16 +124,17 @@ export function LogViewer({ kind, slug, height = 'calc(100vh - 300px)' }: { kind
           <IconButton
             title="화면 비우기"
             onClick={async () => {
-              if (!(await confirm({ title: '콘솔 비우기', body: '지금까지의 로그를 화면에서 숨깁니다. (journald 원본은 남아 있어 내려받기로 볼 수 있습니다)', confirm: '비우기' }))) return;
+              if (!(await confirm({ title: '로그 화면을 비울까요?', body: '화면에서만 지우고, journald 원본은 내려받기로 계속 볼 수 있습니다.', confirm: '비우기' }))) return;
               await api.post(`${base}/logs/clear`);
               setLines([]);
+              toast.ok('화면을 비웠습니다');
             }}
           >
             <Eraser size={15} />
           </IconButton>
         </div>
       </div>
-      <div className="console relative overflow-hidden rounded-[14px]">
+      <div className="console relative overflow-hidden rounded-card">
         <div
           ref={box}
           onScroll={(e) => {
@@ -141,13 +142,13 @@ export function LogViewer({ kind, slug, height = 'calc(100vh - 300px)' }: { kind
             const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
             if (atBottom !== follow) setFollow(atBottom);
           }}
-          className={cx('mono overflow-auto py-3 text-[12.5px] leading-[1.6]', wrap ? 'whitespace-pre-wrap break-all' : 'whitespace-pre')}
+          className={cx('mono overflow-auto py-3 text-caption leading-[1.6]', wrap ? 'whitespace-pre-wrap break-all' : 'whitespace-pre')}
           style={{ height, minHeight: 280 }}
         >
           {!loaded ? (
             <div className="px-3 text-muted">불러오는 중...</div>
           ) : shown.length === 0 ? (
-            <div className="px-3 text-muted">{filter ? '검색 결과가 없습니다' : '아직 출력이 없습니다'}</div>
+            <div className="px-3 text-muted">{filter ? '검색어와 맞는 줄이 없습니다' : '앱이 출력하면 여기에 실시간으로 나옵니다'}</div>
           ) : (
             shown.map((e, i) => <Line key={`${e.t}-${i}`} e={e} showTime={showTime} />)
           )}
@@ -156,12 +157,12 @@ export function LogViewer({ kind, slug, height = 'calc(100vh - 300px)' }: { kind
           <button
             type="button"
             onClick={() => setFollow(true)}
-            className="toast-in absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-accent px-4 py-2 text-[13px] font-medium text-white shadow-pop transition-[filter] hover:brightness-110 cursor-pointer"
+            className="toast-in absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-accent px-4 py-2 text-footnote font-medium text-white shadow-pop transition-[filter] hover:brightness-110 cursor-pointer"
           >
             <ArrowDown size={14} strokeWidth={2.4} /> 최신으로
           </button>
         )}
-        <div className="pointer-events-none absolute right-3 top-2.5 flex items-center gap-1.5 rounded-full bg-surface/80 px-2.5 py-1 text-[12px] text-muted">
+        <div className="pointer-events-none absolute right-3 top-2.5 flex items-center gap-1.5 rounded-full bg-surface/80 px-2.5 py-1 text-caption text-muted">
           <span className={cx('h-1.5 w-1.5 rounded-full', paused ? 'bg-warn' : up ? 'bg-ok pulse' : 'bg-bad')} />
           {paused ? `일시정지 (${pausedBuf.current.length}줄 대기)` : up ? '실시간' : '연결 끊김'}
         </div>
@@ -195,7 +196,7 @@ export function DeployLog({ id, running, height = 420 }: { id: number; running: 
         const el = e.currentTarget;
         setFollow(el.scrollHeight - el.scrollTop - el.clientHeight < 40);
       }}
-      className="console mono overflow-auto rounded-[14px] p-4 text-[12.5px] leading-[1.6] whitespace-pre-wrap break-all"
+      className="console mono overflow-auto rounded-card p-4 text-caption leading-[1.6] whitespace-pre-wrap break-all"
       style={{ height }}
     >
       {text.map((l, i) => {

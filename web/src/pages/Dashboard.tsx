@@ -1,10 +1,10 @@
-import { ArrowDownUp, Boxes, Check, ChevronRight, CircleAlert, CircleCheck, Clock, Cpu, Database, HardDrive, MemoryStick, Plus, Zap } from 'lucide-react';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Boxes, Check, Clock, Database, Plus, Zap } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { Sparkline } from '../components/Charts';
 import type { Me } from '../components/Layout';
 import { AppMenu, AppPower, DeployBadge, DomainLink, PendingDeploy, TRIGGER, type Deploy } from '../components/shared';
-import { Badge, Button, Card, Empty, List, Loading, Meter, PageHeader, Row, SectionHeader, StatusBadge, StatusDot, cx } from '../components/ui';
-import { ago, bytes, rate, sha } from '../lib/format';
+import { Badge, Button, Card, Empty, List, Loading, Meter, PageHeader, Row, SectionHeader, Stats, StatusBadge, StatusDot, cx } from '../components/ui';
+import { ago, bytes, josa, rate, sha } from '../lib/format';
 import { Link, navigate, useTitle } from '../lib/router';
 import { useApi, useLive, type SystemNow, type UnitStatus } from '../lib/store';
 
@@ -92,78 +92,91 @@ function useHistory() {
   return hist;
 }
 
-/** 서버 사용량: 큰 숫자 + 얇은 그래프 (건강 앱의 요약 칸처럼) */
-function ServerTiles({ sys, hist }: { sys: SystemNow | null; hist: Sample[] }) {
+/** 서버 사용량: 칸 하나를 넷으로 나눈 요약. 누르면 서버 화면으로 */
+function ServerStats({ sys, hist }: { sys: SystemNow | null; hist: Sample[] }) {
   if (!sys) return null;
   const disk = sys.disk[0];
   const diskPct = disk ? (disk.used / disk.total) * 100 : 0;
-  const tiles: { label: string; icon: ReactNode; value: string; unit?: string; sub: string; spark?: number[]; max?: number; meter?: number }[] = [
-    { label: 'CPU', icon: <Cpu size={14} />, value: sys.cpu.toFixed(0), unit: '%', sub: `${sys.cores.length}코어 · 부하 ${sys.load.toFixed(2)}`, spark: hist.map((s) => s.cpu), max: 100 },
-    { label: '메모리', icon: <MemoryStick size={14} />, value: sys.mem.toFixed(0), unit: '%', sub: `${bytes(sys.memUsed)} / ${bytes(sys.memTotal)}`, spark: hist.map((s) => s.mem), max: 100 },
-    { label: '디스크', icon: <HardDrive size={14} />, value: disk ? diskPct.toFixed(0) : '-', unit: disk ? '%' : '', sub: disk ? `${bytes(disk.total - disk.used)} 남음` : '', meter: diskPct },
-    { label: '네트워크', icon: <ArrowDownUp size={14} />, value: rate(sys.rx + sys.tx), sub: `↓ ${rate(sys.rx)}  ↑ ${rate(sys.tx)}`, spark: hist.map((s) => s.rx + s.tx) },
-  ];
+  // 그래프가 없는 칸도 높이를 맞춘다
+  const spark = (values: number[], max?: number) => (values.length > 1 ? <Sparkline values={values} max={max} height={28} /> : <span className="block h-7" />);
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-      {tiles.map((t) => (
-        <Link key={t.label} to="/system" className="card group flex min-w-0 flex-col p-4 transition-transform duration-200 active:scale-[0.98] sm:p-5">
-          <div className="flex items-center gap-1.5 text-[13px] font-medium text-muted">
-            {t.icon}
-            {t.label}
-            <ChevronRight size={14} className="ml-auto text-muted/50 transition-transform group-hover:translate-x-0.5" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-0.5 whitespace-nowrap">
-            <span className={cx('font-semibold tracking-[-0.03em]', t.unit !== undefined ? 'text-[34px] leading-none' : 'text-[22px] leading-[34px]')}>{t.value}</span>
-            {t.unit && <span className="text-[17px] font-semibold text-muted">{t.unit}</span>}
-          </div>
-          <div className="mt-1 truncate text-[12.5px] text-muted">{t.sub}</div>
-          <div className="mt-auto pt-3">
-            {t.spark && t.spark.length > 1 ? (
-              <Sparkline values={t.spark} max={t.max} height={28} />
-            ) : t.meter !== undefined ? (
-              <div className="flex h-7 items-end pb-1">
-                <Meter value={t.meter} />
-              </div>
-            ) : (
-              <div className="h-7" />
-            )}
-          </div>
-        </Link>
-      ))}
-    </div>
+    <Stats
+      items={[
+        { label: 'CPU', value: sys.cpu.toFixed(0), unit: '%', sub: `${sys.cores.length}코어, 부하 ${sys.load.toFixed(2)}`, to: '/system', chart: spark(hist.map((s) => s.cpu), 100) },
+        { label: '메모리', value: sys.mem.toFixed(0), unit: '%', sub: `${bytes(sys.memUsed)} / ${bytes(sys.memTotal)}`, to: '/system', chart: spark(hist.map((s) => s.mem), 100) },
+        {
+          label: '디스크',
+          value: disk ? diskPct.toFixed(0) : '-',
+          unit: disk ? '%' : undefined,
+          sub: disk ? `${bytes(disk.total - disk.used)} 남음` : undefined,
+          to: '/system',
+          tone: diskPct > 90 ? 'bad' : undefined,
+          chart: (
+            <span className="flex h-7 items-end pb-1">
+              <Meter value={diskPct} />
+            </span>
+          ),
+        },
+        {
+          label: '네트워크',
+          value: rate(sys.rx + sys.tx),
+          sub: (
+            <span className="flex gap-2.5">
+              <span>↓ {rate(sys.rx)}</span>
+              <span>↑ {rate(sys.tx)}</span>
+            </span>
+          ),
+          to: '/system',
+          chart: spark(hist.map((s) => s.rx + s.tx)),
+        },
+      ]}
+    />
   );
 }
 
-/** 맨 위 한 줄 요약: 지금 손볼 게 있는지 */
-function StatusLine({ apps, dbs, waiting, units }: { apps: AppSummary[]; dbs: DbSummary[]; waiting: number; units: Record<string, UnitStatus> }) {
+type Tone = 'ok' | 'warn' | 'bad' | 'idle';
+
+/**
+ * 홈 제목: 지금 상태를 한 문장으로. 문제가 있으면 그것부터, 없으면 실행 중인 개수.
+ * 아래 한 줄은 앱 · DB 를 나눠 센 사실.
+ */
+function useHeadline(apps: AppSummary[], dbs: DbSummary[], waiting: number, units: Record<string, UnitStatus>) {
   const appState = (a: AppSummary) => (a.deployedSha ? (units[`hrone-app-${a.slug}.service`] ?? a.status)?.state : 'not-deployed');
   const dbState = (d: DbSummary) => (d.initialized ? (units[`hrone-db-${d.slug}.service`] ?? d.status)?.state : 'not-deployed');
+  const failed = [...apps.filter((a) => appState(a) === 'failed').map((a) => a.name), ...dbs.filter((d) => dbState(d) === 'failed').map((d) => d.name)];
   const appRun = apps.filter((a) => appState(a) === 'running').length;
-  const appBad = apps.filter((a) => appState(a) === 'failed').length;
   const dbRun = dbs.filter((d) => dbState(d) === 'running').length;
-  const dbBad = dbs.filter((d) => dbState(d) === 'failed').length;
-  const bad = appBad + dbBad;
-  const headline = bad
-    ? `${bad}개 서비스에 문제가 있습니다`
-    : waiting
-      ? `승인을 기다리는 배포가 ${waiting}개 있습니다`
-      : apps.length + dbs.length === 0
-        ? '아직 실행 중인 서비스가 없습니다'
-        : '모든 서비스가 정상입니다';
-  const Icon = bad ? CircleAlert : waiting ? Clock : CircleCheck;
-  const parts = [
-    apps.length ? `앱 ${apps.length}개 중 ${appRun}개 실행 중` : null,
-    dbs.length ? `데이터베이스 ${dbs.length}개 중 ${dbRun}개 실행 중` : null,
-  ].filter(Boolean);
-  return (
-    <div className="flex items-center gap-3.5">
-      <Icon size={30} strokeWidth={1.8} className={cx('shrink-0', bad ? 'text-bad' : waiting ? 'text-warn' : 'text-ok')} />
-      <div className="min-w-0">
-        <div className="text-[17px] font-semibold tracking-[-0.015em]">{headline}</div>
-        {parts.length > 0 && <div className="mt-0.5 text-[14px] text-muted">{parts.join(' · ')}</div>}
-      </div>
-    </div>
-  );
+  const total = apps.length + dbs.length;
+  const running = appRun + dbRun;
+
+  let title: string;
+  let tone: Tone;
+  if (failed.length === 1) [title, tone] = [`${failed[0]}에 문제가 생겼습니다`, 'bad'];
+  else if (failed.length > 1) [title, tone] = [`서비스 ${failed.length}개에 문제가 생겼습니다`, 'bad'];
+  else if (waiting) [title, tone] = [`승인을 기다리는 배포가 ${waiting}개 있습니다`, 'warn'];
+  else if (total === 0) [title, tone] = ['첫 앱을 배포해 보세요', 'idle'];
+  else if (running === total) [title, tone] = ['모든 서비스가 실행 중입니다', 'ok'];
+  else [title, tone] = [`서비스 ${total}개 중 ${running}개가 실행 중입니다`, 'idle'];
+
+  const count = (label: string, n: number, run: number) => (n === 0 ? null : run === n ? `${label} ${n}개 모두` : `${label} ${n}개 중 ${run}개`);
+  const facts = [count('앱', apps.length, appRun), count('데이터베이스', dbs.length, dbRun)].filter(Boolean).join(', ');
+  const sub =
+    total === 0
+      ? 'GitHub 저장소를 연결하면 푸시할 때마다 이 서버에 자동으로 배포합니다.'
+      : [failed.length > 1 ? `${josa(failed.join(', '), '을', '를')} 확인하세요.` : null, facts ? `${facts} 실행 중입니다.` : null].filter(Boolean).join(' ');
+  return { title, tone, sub };
+}
+
+/** 제목 왼쪽의 상태 표시: 색 있는 원 + 흰 기호 */
+function HeadlineMark({ tone }: { tone: Tone }) {
+  if (tone === 'idle') return null;
+  const [bg, icon] =
+    tone === 'bad'
+      ? ['bg-bad-dot', <span key="b" className="text-title font-bold leading-none">!</span>]
+      : tone === 'warn'
+        ? ['bg-warn-dot', <Clock key="w" size={20} strokeWidth={2.6} />]
+        : ['bg-ok-dot', <Check key="o" size={21} strokeWidth={3.2} />];
+  return <span className={cx('flex h-9 w-9 items-center justify-center rounded-full text-white', bg)}>{icon}</span>;
 }
 
 const HIDE_GUIDE = 'hrone:guide-hidden';
@@ -183,7 +196,7 @@ function GettingStarted({ me, appCount }: { me: Me; appCount: number }) {
     { done: me.totpEnabled, title: '계정 지키기', body: '설치할 때 받은 비밀번호를 바꾸고 OTP(2단계 인증)를 켜세요.', to: '/settings', cta: '내 계정' },
     { done: s.githubTokenSet, optional: true, title: 'GitHub 연결', body: '비공개 저장소를 쓸 때만 필요합니다. 연결하면 앱 추가 화면에서 내 저장소를 골라 쓸 수 있습니다.', to: '/settings?tab=connect', cta: '토큰 넣기' },
     { done: appCount > 0, title: '첫 앱 배포', body: '저장소 주소만 넣으면 실행 방법을 알아서 찾고 바로 배포합니다.', to: '/apps/new', cta: '앱 추가', primary: true },
-    { done: s.discordSet, optional: true, title: '디스코드 알림', body: '배포 성공·실패, 크래시를 디스코드로 받습니다.', to: '/settings?tab=connect', cta: '웹후크 넣기' },
+    { done: s.discordSet, optional: true, title: '디스코드 알림', body: '배포가 끝나거나 실패할 때, 앱이 멈췄을 때 디스코드로 알려 줍니다.', to: '/settings?tab=connect', cta: '웹후크 넣기' },
   ];
   if (steps.every((x) => x.done)) return null;
   const left = steps.filter((x) => !x.done && !x.optional).length;
@@ -215,15 +228,15 @@ function GettingStarted({ me, appCount }: { me: Me; appCount: number }) {
       <ol>
         {steps.map((x, i) => (
           <li key={x.title} className={cx('flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3.5 sm:px-5', i > 0 && 'hairline-t')}>
-            <span className={cx('flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold', x.done ? 'bg-ok-dot text-white' : 'bg-fill text-fg-2')}>
+            <span className={cx('flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-footnote font-semibold', x.done ? 'bg-ok-dot text-white' : 'bg-fill text-fg-2')}>
               {x.done ? <Check size={15} strokeWidth={3} /> : i + 1}
             </span>
             <div className="min-w-0 flex-1">
-              <div className={cx('text-[15px] font-medium', x.done && 'text-muted')}>
+              <div className={cx('text-body font-medium', x.done && 'text-muted')}>
                 {x.title}
-                {x.optional && <span className="ml-1.5 text-[13px] font-normal text-muted">선택</span>}
+                {x.optional && <span className="ml-1.5 text-footnote font-normal text-muted">선택</span>}
               </div>
-              {!x.done && <div className="mt-0.5 text-[13px] leading-relaxed text-muted">{x.body}</div>}
+              {!x.done && <div className="mt-0.5 text-footnote text-muted">{x.body}</div>}
             </div>
             {!x.done && (
               <Button size="sm" variant={x.primary ? 'primary' : 'secondary'} onClick={() => navigate(x.to)}>
@@ -238,7 +251,7 @@ function GettingStarted({ me, appCount }: { me: Me; appCount: number }) {
 }
 
 const seeAll = (to: string) => (
-  <Link to={to} className="text-[15px] text-accent-2 hover:opacity-75">
+  <Link to={to} className="text-body text-accent-2 hover:opacity-75">
     전체 보기
   </Link>
 );
@@ -250,15 +263,18 @@ export function Dashboard({ me }: { me: Me }) {
   const { data, loading } = useApi<{ apps: AppSummary[]; databases: DbSummary[]; open: Deploy[]; recent: Deploy[]; system: SystemNow | null }>('/api/dashboard', {
     refreshOn: ['apps', 'deploys', 'databases'],
   });
-  const { data: info } = useApi<{ hostname: string }>('/api/system/info');
   const appsById = useMemo(() => new Map((data?.apps ?? []).map((a) => [a.id, a])), [data]);
   const waiting = (data?.open ?? []).filter((d) => d.status === 'pending' || d.status === 'scheduled');
+  const head = useHeadline(data?.apps ?? [], data?.databases ?? [], waiting.length, live.units);
 
   return (
     <div>
       <PageHeader
-        title="홈"
-        sub={info?.hostname}
+        title={data ? head.title : '홈'}
+        barTitle="홈"
+        wrap
+        icon={data && <HeadlineMark tone={head.tone} />}
+        sub={data && head.sub}
         actions={
           <>
             <Button size="sm" icon={<Database size={15} />} onClick={() => navigate('/databases?new=1')} title="DB 추가" aria-label="DB 추가">
@@ -275,9 +291,9 @@ export function Dashboard({ me }: { me: Me }) {
         <Loading />
       ) : (
         <div className="space-y-9">
-          <section className="space-y-4">
-            <StatusLine apps={data!.apps} dbs={data!.databases} waiting={waiting.length} units={live.units} />
-            <ServerTiles sys={live.system ?? data?.system ?? null} hist={hist} />
+          <section>
+            <SectionHeader title="서버" />
+            <ServerStats sys={live.system ?? data?.system ?? null} hist={hist} />
           </section>
 
           <GettingStarted me={me} appCount={data!.apps.length} />
@@ -319,7 +335,7 @@ export function Dashboard({ me }: { me: Me }) {
                           </span>
                         }
                         sub={
-                          <span className="flex min-w-0 items-center gap-2">
+                          <span className="flex min-w-0 items-center gap-3">
                             <StatusBadge state={state} />
                             {a.publicUrl ? <DomainLink url={a.publicUrl} className="md:max-w-[60%] md:shrink-0" /> : <span className="shrink-0">{local}</span>}
                             {st?.state === 'running' && <span className="truncate max-md:hidden">{bytes(st.memory)}</span>}
@@ -331,7 +347,7 @@ export function Dashboard({ me }: { me: Me }) {
                               <AppMenu slug={a.slug} name={a.name} state={st?.state} deployed={!!a.deployedSha} publicUrl={a.publicUrl || undefined} />
                             </span>
                             <span className="hidden items-center gap-1 md:flex">
-                              <AppPower slug={a.slug} state={st?.state} deployed={!!a.deployedSha} />
+                              <AppPower slug={a.slug} name={a.name} state={st?.state} deployed={!!a.deployedSha} />
                             </span>
                           </span>
                         }
@@ -346,10 +362,10 @@ export function Dashboard({ me }: { me: Me }) {
               <section>
                 <SectionHeader title="데이터베이스" actions={data!.databases.length > 0 && seeAll('/databases')} />
                 {data!.databases.length === 0 ? (
-                  <div className="card px-5 py-8 text-center text-[15px] text-muted">
-                    MariaDB · Redis 가 필요하면{' '}
+                  <div className="card px-5 py-8 text-center text-body text-muted">
+                    앱에 MariaDB나 Redis가 필요하면{' '}
                     <Link to="/databases?new=1" className="text-accent-2 hover:underline">
-                      추가하세요
+                      여기서 만드세요
                     </Link>
                   </div>
                 ) : (
@@ -362,8 +378,14 @@ export function Dashboard({ me }: { me: Me }) {
                           to={`/databases/${d.slug}`}
                           icon={<DbIcon type={d.type} size={32} />}
                           title={d.name}
-                          sub={`${d.type === 'mariadb' ? 'MariaDB' : 'Redis'} · :${d.port}${st?.state === 'running' ? ` · ${bytes(st.memory)}` : ''}`}
-                          trailing={d.job ? <span className="text-[13px] text-info">준비 중</span> : <StatusDot state={d.initialized ? st?.state : 'not-deployed'} />}
+                          sub={
+                            <span className="flex gap-3">
+                              <span>{d.type === 'mariadb' ? 'MariaDB' : 'Redis'}</span>
+                              <span>포트 {d.port}</span>
+                              {st?.state === 'running' && <span>{bytes(st.memory)}</span>}
+                            </span>
+                          }
+                          trailing={d.job ? <span className="text-footnote text-info">준비 중</span> : <StatusDot state={d.initialized ? st?.state : 'not-deployed'} />}
                         />
                       );
                     })}
@@ -382,15 +404,15 @@ export function Dashboard({ me }: { me: Me }) {
                         title={
                           <span className="flex items-center justify-between gap-2">
                             <span className="truncate font-medium">{d.appName}</span>
-                            <span className="shrink-0 text-[13px] text-muted">{ago(d.finished_at ?? d.created_at)}</span>
+                            <span className="shrink-0 text-footnote text-muted">{ago(d.finished_at ?? d.created_at)}</span>
                           </span>
                         }
                         sub={
                           <span className="flex items-center gap-2">
-                            <DeployBadge status={d.status} />
-                            <span className="truncate">
-                              <span className="mono text-[12px]">{sha(d.to_sha)}</span> {d.commits[0]?.message ?? TRIGGER[d.trigger]}
-                            </span>
+                            {/* 성공은 보통의 일이라 표시하지 않는다. 눈여겨볼 상태만 배지로 */}
+                            {d.status !== 'success' && <DeployBadge status={d.status} />}
+                            <span className="mono shrink-0 text-caption">{sha(d.to_sha)}</span>
+                            <span className="truncate">{d.commits[0]?.message ?? TRIGGER[d.trigger]}</span>
                           </span>
                         }
                         chevron={false}

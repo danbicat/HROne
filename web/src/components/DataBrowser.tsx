@@ -36,8 +36,8 @@ export function DataBrowser({ slug, defaultDb, running }: { slug: string; defaul
   if (!running) {
     return (
       <div className="card">
-        <Empty icon={<Table2 />} title="DB 가 실행 중이 아닙니다">
-          시작하면 테이블과 데이터를 볼 수 있습니다.
+        <Empty icon={<Table2 />} title="DB가 실행 중이 아닙니다">
+          DB를 시작하면 여기에 테이블과 데이터가 나옵니다.
         </Empty>
       </div>
     );
@@ -72,7 +72,7 @@ export function DataBrowser({ slug, defaultDb, running }: { slug: string; defaul
           ) : !tables ? (
             <Loading />
           ) : tables.length === 0 ? (
-            <div className="hairline-t px-4 py-6 text-center text-[14px] text-muted">테이블이 없습니다</div>
+            <div className="hairline-t px-4 py-6 text-center text-footnote text-muted">이 DB에는 테이블이 없습니다. SQL 콘솔에서 CREATE TABLE로 만들면 여기에 나옵니다.</div>
           ) : (
             <div className="max-h-[40vh] overflow-auto px-1.5 pb-1.5 lg:max-h-[66vh]">
               {tables.map((t) => {
@@ -83,11 +83,11 @@ export function DataBrowser({ slug, defaultDb, running }: { slug: string; defaul
                     type="button"
                     onClick={() => setQuery('table', t.name)}
                     aria-current={on || undefined}
-                    className={cx('flex w-full items-center gap-2.5 rounded-[9px] px-2.5 py-2 text-left text-[14px] transition-colors cursor-pointer', on ? 'bg-accent text-white' : 'hover:bg-fill/70')}
+                    className={cx('flex w-full items-center gap-2.5 rounded-tile px-2.5 py-2 text-left text-body transition-colors cursor-pointer', on ? 'bg-accent text-white' : 'hover:bg-fill/70')}
                   >
                     {t.view ? <Eye size={15} className={cx('shrink-0', on ? 'text-white/80' : 'text-muted')} /> : <Table2 size={15} className={cx('shrink-0', on ? 'text-white/80' : 'text-accent-2')} />}
-                    <span className="mono min-w-0 flex-1 truncate text-[13px]">{t.name}</span>
-                    <span className={cx('shrink-0 text-[12.5px] tabular-nums', on ? 'text-white/75' : 'text-muted')} title={t.view ? '뷰' : `약 ${t.rows.toLocaleString()}행 · ${bytes(t.size)}`}>
+                    <span className="mono min-w-0 flex-1 truncate text-footnote">{t.name}</span>
+                    <span className={cx('shrink-0 text-caption tabular-nums', on ? 'text-white/75' : 'text-muted')} title={t.view ? '뷰' : `약 ${t.rows.toLocaleString()}행, ${bytes(t.size)}`}>
                       {t.view ? '뷰' : `~${t.rows.toLocaleString()}`}
                     </span>
                   </button>
@@ -147,12 +147,18 @@ function TableView({ slug, schema, table }: { slug: string; schema: string; tabl
     <section className="min-w-0">
       <header className="mb-2 flex min-h-7 flex-wrap items-end justify-between gap-x-3 gap-y-1 px-1">
         <div className="min-w-0">
-          <h2 className="mono truncate text-[16px] font-semibold">
+          <h2 className="mono truncate text-headline">
             <span className="text-muted">{schema}.</span>
             {table}
           </h2>
         </div>
-        {data && <div className="text-[13px] text-muted">{data.total === null ? '행 수 계산 안 함' : `${data.exact ? '' : '약 '}${data.total.toLocaleString()}행`} · 컬럼 {cols.length}개 · 읽기 전용</div>}
+        {data && (
+          <div className="flex flex-wrap gap-x-3 text-footnote text-muted">
+            <span>{data.total === null ? '행 수 계산 안 함' : `${data.exact ? '' : '약 '}${data.total.toLocaleString()}행`}</span>
+            <span>컬럼 {cols.length}개</span>
+            <span>읽기 전용</span>
+          </div>
+        )}
       </header>
       <div className="card overflow-hidden">
         <form
@@ -163,7 +169,7 @@ function TableView({ slug, schema, table }: { slug: string; schema: string; tabl
             setFilter(text.trim() && filterCol ? { col: filterCol, q: text.trim() } : null);
           }}
         >
-          <select className="input h-9 w-auto max-w-[180px] py-0 text-[14px]" value={filterCol} onChange={(e) => setFilterCol(e.target.value)} aria-label="찾을 컬럼">
+          <select className="input h-9 w-auto max-w-[180px] py-0 text-body" value={filterCol} onChange={(e) => setFilterCol(e.target.value)} aria-label="찾을 컬럼">
             {cols.map((c) => (
               <option key={c.name} value={c.name}>
                 {c.name}
@@ -172,7 +178,7 @@ function TableView({ slug, schema, table }: { slug: string; schema: string; tabl
           </select>
           <div className="relative min-w-[160px] flex-1">
             <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-            <input className="input h-9 pl-9 text-[14px]" placeholder="이 값을 포함하는 행 찾기" value={text} onChange={(e) => setText(e.target.value)} />
+            <input className="input h-9 pl-9 text-body" placeholder="이 값을 포함하는 행 찾기" value={text} onChange={(e) => setText(e.target.value)} />
           </div>
           <Button size="sm" type="submit">
             찾기
@@ -183,7 +189,7 @@ function TableView({ slug, schema, table }: { slug: string; schema: string; tabl
             </Button>
           )}
           <div className="ml-auto flex items-center gap-1">
-            <select className="input h-9 w-auto py-0 text-[14px]" value={size} onChange={(e) => (setSize(Number(e.target.value)), setPage(0))} aria-label="한 쪽 줄 수">
+            <select className="input h-9 w-auto py-0 text-body" value={size} onChange={(e) => (setSize(Number(e.target.value)), setPage(0))} aria-label="한 쪽 줄 수">
               {[25, 50, 100, 200].map((n) => (
                 <option key={n} value={n}>
                   {n}줄씩
@@ -205,7 +211,7 @@ function TableView({ slug, schema, table }: { slug: string; schema: string; tabl
         ) : (
           <>
             <div className={cx('max-h-[62vh] overflow-auto transition-opacity', loading && 'opacity-60')}>
-              <table className="min-w-full text-[14px]">
+              <table className="min-w-full text-body">
                 <thead className="sticky top-0 z-10 bg-surface">
                   <tr className="hairline-t">
                     {cols.map((c, j) => (
@@ -213,14 +219,14 @@ function TableView({ slug, schema, table }: { slug: string; schema: string; tabl
                         <button
                           type="button"
                           onClick={() => sortBy(c.name)}
-                          className={cx('flex items-center gap-1 whitespace-nowrap text-[12.5px] font-semibold transition-colors hover:text-fg cursor-pointer', order?.col === c.name ? 'text-fg' : 'text-muted')}
-                          title={`${c.columnType}${c.nullable ? ' · NULL 가능' : ''} · 눌러서 정렬`}
+                          className={cx('flex items-center gap-1 whitespace-nowrap text-caption font-semibold transition-colors hover:text-fg cursor-pointer', order?.col === c.name ? 'text-fg' : 'text-muted')}
+                          title={`${c.columnType}${c.nullable ? ', NULL 가능' : ''}. 눌러서 정렬합니다`}
                         >
                           {c.key === 'PRI' && <KeyRound size={12} className="text-warn" />}
                           <span className="mono">{c.name}</span>
                           {order?.col === c.name && (order.dir === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />)}
                         </button>
-                        <div className="mt-0.5 whitespace-nowrap text-[12px] font-normal text-muted/80">{c.columnType}</div>
+                        <div className="mt-0.5 whitespace-nowrap text-caption font-normal text-muted/80">{c.columnType}</div>
                       </th>
                     ))}
                   </tr>
@@ -228,15 +234,27 @@ function TableView({ slug, schema, table }: { slug: string; schema: string; tabl
                 <tbody>
                   {data.rows.length === 0 && (
                     <tr>
-                      <td colSpan={cols.length} className="px-4 py-10 text-center text-[14px] text-muted">
-                        {filter ? '찾는 값이 있는 행이 없습니다' : '행이 없습니다'}
+                      <td colSpan={cols.length} className="px-4 py-10 text-center text-body text-muted">
+                        {filter ? '찾는 값이 있는 행이 없습니다. 다른 값이나 컬럼으로 찾아 보세요.' : '이 테이블에는 행이 없습니다.'}
                       </td>
                     </tr>
                   )}
                   {data.rows.map((r, i) => (
-                    <tr key={i} onClick={() => setDetail(r)} className={cx('cursor-pointer transition-colors hover:bg-fill/50', i > 0 && 'hairline-t')}>
+                    <tr
+                      key={i}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`${from + i}번째 행 보기`}
+                      onClick={() => setDetail(r)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setDetail(r);
+                        }
+                      }}
+                      className={cx('cursor-pointer transition-colors hover:bg-fill/50', i > 0 && 'hairline-t')}>
                       {r.map((v, j) => (
-                        <td key={j} className={cx('mono max-w-[320px] truncate whitespace-nowrap py-2.5 pr-4 text-[13px]', j === 0 && 'pl-4')} title={v ?? 'NULL'}>
+                        <td key={j} className={cx('mono max-w-[320px] truncate whitespace-nowrap py-2.5 pr-4 text-footnote', j === 0 && 'pl-4')} title={v ?? 'NULL'}>
                           {v === null ? <span className="text-muted/60">NULL</span> : v === '' ? <span className="text-muted/60">(빈 값)</span> : v.replace(/\n/g, ' ↵ ')}
                         </td>
                       ))}
@@ -245,7 +263,7 @@ function TableView({ slug, schema, table }: { slug: string; schema: string; tabl
                 </tbody>
               </table>
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-2 hairline-t px-4 py-2 text-[13px] text-muted">
+            <div className="flex flex-wrap items-center justify-between gap-2 hairline-t px-4 py-2 text-footnote text-muted">
               <span>{data.rows.length ? `${from.toLocaleString()}–${to.toLocaleString()}번째 행` : ''}</span>
               <div className="flex items-center gap-1">
                 <Button size="sm" variant="plain" icon={<ChevronLeft size={15} />} disabled={page === 0 || loading} onClick={() => setPage((p) => Math.max(0, p - 1))}>
@@ -267,17 +285,17 @@ function TableView({ slug, schema, table }: { slug: string; schema: string; tabl
             cols.map((c, j) => (
               <div key={c.name}>
                 <div className="mb-1 flex items-center justify-between gap-2">
-                  <span className="min-w-0 truncate text-[13px]">
+                  <span className="min-w-0 truncate text-footnote">
                     <span className="mono font-semibold text-fg">{c.name}</span> <span className="text-muted">{c.columnType}</span>
                   </span>
                   {detail[j] !== null && <CopyButton text={detail[j]!} />}
                 </div>
-                <div className="mono max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-[10px] bg-fill px-3 py-2 text-[13px]">
+                <div className="mono max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-control bg-fill px-3 py-2 text-footnote">
                   {detail[j] === null ? <span className="text-muted/60">NULL</span> : detail[j] || <span className="text-muted/60">(빈 값)</span>}
                 </div>
               </div>
             ))}
-          <p className="text-[13px] text-muted">긴 글은 앞 300자, 바이너리는 앞 32바이트만 보여 줍니다. 전체 값은 SQL 콘솔에서 확인하세요.</p>
+          <p className="text-footnote text-muted">긴 글은 앞 300자, 바이너리는 앞 32바이트만 보여 줍니다. 전체 값은 SQL 콘솔에서 확인하세요.</p>
         </div>
       </Modal>
     </section>

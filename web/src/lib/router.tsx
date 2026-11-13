@@ -53,7 +53,8 @@ export function Link({ to, onClick, ...rest }: AnchorHTMLAttributes<HTMLAnchorEl
       href={to}
       onClick={(e: MouseEvent<HTMLAnchorElement>) => {
         onClick?.(e);
-        if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
+        // 새 탭으로 여는 링크(폼 안의 안내 링크 등)는 브라우저에 맡긴다
+        if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || rest.target === '_blank') return;
         e.preventDefault();
         navigate(to);
       }}
@@ -70,6 +71,6 @@ export function Redirect({ to }: { to: string }) {
 
 export function useTitle(title: string) {
   useEffect(() => {
-    document.title = title ? `${title} · HROne` : 'HROne';
+    document.title = title ? `${title} - HROne` : 'HROne';
   }, [title]);
 }

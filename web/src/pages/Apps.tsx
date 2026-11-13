@@ -20,7 +20,7 @@ export function Apps() {
     <div>
       <PageHeader
         title="앱"
-        sub={data?.length ? `${data.length}개 · 실행 중 ${running}개` : 'GitHub 에 푸시하면 자동으로 배포되는 Node.js · Python 앱'}
+        sub={data?.length ? `${data.length}개 중 ${running}개 실행 중` : 'GitHub에 푸시하면 자동으로 배포되는 Node.js, Python 앱'}
         actions={
           <Button size="sm" variant="primary" icon={<Plus size={16} />} onClick={() => navigate('/apps/new')}>
             앱 추가
@@ -45,7 +45,7 @@ export function Apps() {
             </div>
           )}
           {list.length === 0 ? (
-            <div className="card px-5 py-10 text-center text-[15px] text-muted">"{q}" 와 맞는 앱이 없습니다</div>
+            <div className="card px-5 py-10 text-center text-body text-muted">"{q}"에 맞는 앱이 없습니다. 검색어를 바꿔 보세요.</div>
           ) : (
             <List>
               {list.map((a) => (
@@ -61,7 +61,13 @@ export function Apps() {
 
 function AppRow({ a, st }: { a: AppSummary; st: AppSummary['status'] }) {
   const state = a.deployedSha ? st?.state : 'not-deployed';
-  const usage = st?.state === 'running' ? `CPU ${pct(st.cpu, 1)} · ${bytes(st.memory)}` : null;
+  const usage =
+    st?.state === 'running' ? (
+      <span className="flex justify-end gap-x-3">
+        <span>CPU {pct(st.cpu, 1)}</span>
+        <span>{bytes(st.memory)}</span>
+      </span>
+    ) : null;
   const local = a.port ? `127.0.0.1:${a.port}` : '포트 없음';
   // 지금 눈여겨볼 배포 상태가 있으면 그것을, 없으면 마지막 배포 시각
   const deploy =
@@ -92,8 +98,9 @@ function AppRow({ a, st }: { a: AppSummary; st: AppSummary['status'] }) {
           {/* 공개 주소는 누르면 바로 그 사이트로 */}
           {a.publicUrl && <DomainLink url={a.publicUrl} className="md:max-w-[60%] md:shrink-0" />}
           {/* 폰에서는 도메인이 다 보이게 저장소 이름을 숨긴다 */}
-          <span className={cx('min-w-0 truncate', a.publicUrl && 'max-md:hidden')}>
-            {repo} · {a.branch}
+          <span className={cx('flex min-w-0 gap-x-3', a.publicUrl && 'max-md:hidden')}>
+            <span className="truncate">{repo}</span>
+            <span className="shrink-0">{a.branch}</span>
           </span>
         </span>
       }
@@ -104,15 +111,24 @@ function AppRow({ a, st }: { a: AppSummary; st: AppSummary['status'] }) {
           </span>
           <span className="hidden shrink-0 items-center gap-6 md:flex">
             <span className="hidden w-44 min-w-0 text-right lg:block">
-              <span className={cx('block truncate text-fg-2', a.port ? 'mono text-[13px]' : 'text-[14px]')}>{local}</span>
-              <span className="block truncate text-[12.5px] text-muted">{usage ?? (a.autostart ? '' : '자동 시작 꺼짐')}</span>
+              <span className="block truncate text-footnote text-fg-2">{local}</span>
+              <span className="block truncate text-caption text-muted">{usage ?? (a.autostart ? '' : '자동 시작 꺼짐')}</span>
             </span>
             <span className="hidden w-36 min-w-0 text-right xl:block">
-              <span className="block truncate text-[14px] text-fg-2">{a.deployedAt ? `${ago(a.deployedAt)} · ${sha(a.deployedSha)}` : '배포 전'}</span>
-              <span className="block truncate text-[12.5px] text-muted">{modeText(a.deployMode, a.deployDelaySec)}</span>
+              <span className="flex justify-end gap-x-3 truncate text-footnote text-fg-2">
+                {a.deployedAt ? (
+                  <>
+                    <span>{ago(a.deployedAt)}</span>
+                    <span className="mono">{sha(a.deployedSha)}</span>
+                  </>
+                ) : (
+                  '배포 전'
+                )}
+              </span>
+              <span className="block truncate text-caption text-muted">{modeText(a.deployMode, a.deployDelaySec)}</span>
             </span>
             <span className="flex items-center gap-1">
-              <AppPower slug={a.slug} state={st?.state} deployed={!!a.deployedSha} />
+              <AppPower slug={a.slug} name={a.name} state={st?.state} deployed={!!a.deployedSha} />
             </span>
           </span>
         </span>

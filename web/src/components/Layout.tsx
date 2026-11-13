@@ -59,7 +59,7 @@ export function Layout({ me, children }: { me: Me; children: ReactNode }) {
         to={n.to}
         aria-current={active ? 'page' : undefined}
         className={cx(
-          'flex items-center gap-2.5 rounded-[8px] px-2.5 py-[7px] text-[14px] transition-colors',
+          'flex items-center gap-2.5 rounded-tile px-2.5 py-[7px] text-body transition-colors',
           active ? 'bg-accent font-medium text-white' : 'text-fg hover:bg-fill',
         )}
       >
@@ -67,7 +67,7 @@ export function Layout({ me, children }: { me: Me; children: ReactNode }) {
         {n.label}
         {n.to === '/apps' && pending > 0 && (
           <span
-            className={cx('ml-auto min-w-5 rounded-full px-1.5 text-center text-[11px] font-semibold leading-5', active ? 'bg-white/25 text-white' : 'bg-warn-dot text-white')}
+            className={cx('ml-auto min-w-5 rounded-full px-1.5 text-center text-caption font-semibold leading-5', active ? 'bg-white/25 text-white' : 'bg-warn-dot text-white')}
             title="승인을 기다리는 배포"
           >
             {pending}
@@ -85,12 +85,12 @@ export function Layout({ me, children }: { me: Me; children: ReactNode }) {
         key={n.to}
         to={n.to}
         aria-current={active ? 'page' : undefined}
-        className={cx('relative flex flex-1 flex-col items-center gap-[3px] pb-1 pt-[7px] text-[10.5px] font-medium transition-colors', active ? 'text-accent' : 'text-muted')}
+        className={cx('relative flex flex-1 flex-col items-center gap-[3px] pb-1 pt-[7px] text-caption font-medium transition-colors', active ? 'text-accent' : 'text-muted')}
       >
         <span className="relative">
           <Icon size={23} strokeWidth={active ? 2.2 : 1.8} />
           {n.to === '/apps' && pending > 0 && (
-            <span className="absolute -right-2.5 -top-1 min-w-[17px] rounded-full bg-bad-dot px-1 text-center text-[10px] font-semibold leading-[17px] text-white">{pending}</span>
+            <span className="absolute -right-2.5 -top-1 min-w-[17px] rounded-full bg-bad-dot px-1 text-center text-caption font-semibold leading-[17px] text-white">{pending}</span>
           )}
         </span>
         {n.short ?? n.label}
@@ -107,34 +107,34 @@ export function Layout({ me, children }: { me: Me; children: ReactNode }) {
             <Link to="/" className="flex items-center gap-2.5 px-5 pb-3 pt-5">
               <img src="/favicon.svg" className="h-8 w-8" alt="" />
               <div className="min-w-0">
-                <div className="text-[15px] font-semibold leading-tight tracking-[-0.01em]">HROne</div>
-                <div className="truncate text-[12px] text-muted">{info?.hostname ?? ''}</div>
+                <div className="text-body font-semibold leading-tight">HROne</div>
+                <div className="truncate text-caption text-muted">{info?.hostname ?? ''}</div>
               </div>
             </Link>
             <div className="px-3 pb-3">
               <button
                 type="button"
                 onClick={openSearch}
-                className="flex h-8 w-full items-center gap-2 rounded-[8px] bg-fill px-2.5 text-[13px] text-muted transition-colors hover:bg-fill-2 cursor-pointer"
+                className="flex h-8 w-full items-center gap-2 rounded-control bg-fill px-2.5 text-footnote text-muted transition-colors hover:bg-fill-2 cursor-pointer"
               >
                 <Search size={14} />
                 검색
-                <kbd className="ml-auto font-sans text-[12px] text-muted/80">{isMac ? '⌘K' : 'Ctrl K'}</kbd>
+                <kbd className="ml-auto font-sans text-caption text-muted/80">{isMac ? '⌘K' : 'Ctrl K'}</kbd>
               </button>
             </div>
             <nav className="flex flex-col gap-0.5 px-3">
               {NAV.map(sideItem)}
-              <div className="px-2.5 pb-1 pt-5 text-[12px] font-semibold text-muted">관리</div>
+              <div className="px-2.5 pb-1 pt-5 text-caption font-semibold text-muted">관리</div>
               {NAV_MANAGE.map(sideItem)}
             </nav>
             <div className="mt-auto flex items-center gap-2.5 px-4 py-4">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-fill-2 text-[13px] font-semibold text-fg-2">{me.username.slice(0, 1).toUpperCase()}</div>
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-fill-2 text-footnote font-semibold text-fg-2">{me.username.slice(0, 1).toUpperCase()}</div>
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1 truncate text-[13px] font-medium">
+                <div className="flex items-center gap-1 truncate text-footnote font-medium">
                   {me.username}
                   {me.totpEnabled && <ShieldCheck size={12} className="shrink-0 text-ok" aria-label="2단계 인증 켜짐" />}
                 </div>
-                <div className="flex items-center gap-1.5 text-[12px] text-muted">
+                <div className="flex items-center gap-1.5 text-caption text-muted">
                   <span className={cx('h-1.5 w-1.5 rounded-full', up ? 'bg-ok-dot' : 'bg-bad-dot pulse')} />
                   {up ? '연결됨' : '재연결 중'}
                 </div>
@@ -159,7 +159,7 @@ export function Layout({ me, children }: { me: Me; children: ReactNode }) {
             <div ref={setBar} className="sticky top-0 z-30 pt-[env(safe-area-inset-top)]" />
             {!up && (
               <div className="fade-in mx-auto mt-2 flex max-w-[1180px] px-4 sm:px-6 lg:px-10">
-                <div className="flex items-center gap-2 rounded-full bg-warn/12 px-3 py-1.5 text-[13px] font-medium text-warn">
+                <div className="flex items-center gap-2 rounded-full bg-warn/12 px-3 py-1.5 text-footnote font-medium text-warn">
                   <WifiOff size={14} />
                   서버와 다시 연결하는 중입니다
                 </div>

@@ -38,7 +38,7 @@ export function AreaChart({ times, series, max, height = 180, format }: { times:
   const y = (v: number) => H - (Math.min(v, m) / m) * (H - 8) - 2;
   if (n < 2)
     return (
-      <div className="flex items-center justify-center text-[13px] text-muted" style={{ height }}>
+      <div className="flex items-center justify-center text-footnote text-muted" style={{ height }}>
         데이터 모으는 중...
       </div>
     );
@@ -46,7 +46,7 @@ export function AreaChart({ times, series, max, height = 180, format }: { times:
   return (
     <div className="relative">
       {series.length > 1 && (
-        <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px] text-muted">
+        <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-caption text-muted">
           {series.map((s) => (
             <span key={s.label} className="inline-flex items-center gap-1.5">
               <span className="h-[3px] w-3 rounded-full" style={{ background: s.color }} />
@@ -83,10 +83,10 @@ export function AreaChart({ times, series, max, height = 180, format }: { times:
           })}
           {hover !== null && <line x1={x(hover)} x2={x(hover)} y1={0} y2={H} stroke="var(--color-line-2)" strokeWidth={1} vectorEffect="non-scaling-stroke" />}
         </svg>
-        <div className="pointer-events-none absolute right-0 top-0 text-[12px] text-muted">{format(ticks[2]!)}</div>
+        <div className="pointer-events-none absolute right-0 top-0 text-caption text-muted">{format(ticks[2]!)}</div>
         {hover !== null && (
           <div
-            className="chrome pointer-events-none absolute top-2 min-w-[120px] rounded-[12px] px-3 py-2 text-[12.5px] shadow-pop"
+            className="chrome pointer-events-none absolute top-2 min-w-[120px] rounded-control px-3 py-2 text-caption shadow-pop"
             style={{ left: `min(calc(${(hover / (n - 1)) * 100}% + 10px), calc(100% - 150px))` }}
           >
             <div className="mb-1 text-muted">{timeOnly(times[hover]!)}</div>
@@ -100,7 +100,7 @@ export function AreaChart({ times, series, max, height = 180, format }: { times:
           </div>
         )}
       </div>
-      <div className="mt-1.5 flex justify-between text-[12px] text-muted">
+      <div className="mt-1.5 flex justify-between text-caption text-muted">
         <span>{timeOnly(times[0]!)}</span>
         <span>{timeOnly(times[n - 1]!)}</span>
       </div>

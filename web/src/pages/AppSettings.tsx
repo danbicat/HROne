@@ -5,7 +5,8 @@ import type { Me } from '../components/Layout';
 import { modeText, normalizeUrl } from '../components/shared';
 import { Button, CopyField, Field, Fold, Notice, Segmented, Toggle, cx, toast, useAction, useConfirm } from '../components/ui';
 import { api, errorText } from '../lib/api';
-import { navigate } from '../lib/router';
+import { josa } from '../lib/format';
+import { Link, navigate } from '../lib/router';
 import { useApi } from '../lib/store';
 import type { AppConfig, AppDetailData } from './AppDetail';
 import { BackupList, type Backup } from './Backups';
@@ -28,7 +29,20 @@ const numOrNull = (s: string) => (s.trim() === '' ? null : Number(s));
 
 function resourceSummary(r: AppConfig['resources']) {
   const parts = [r.cpu ? `CPU ${r.cpu}코어` : '', r.memoryMB ? `메모리 ${r.memoryMB}MB` : '', r.tasks ? `프로세스 ${r.tasks}개` : ''].filter(Boolean);
-  return parts.length ? parts.join(' · ') : '제한 없음';
+  return parts.length ? parts.join(', ') : '제한 없음';
+}
+
+/** 접힌 묶음의 요약 줄: 점 대신 간격으로 나눈다 */
+function Meta({ parts }: { parts: (string | false | null | undefined)[] }) {
+  return (
+    <span className="flex min-w-0 gap-x-3">
+      {parts.filter(Boolean).map((p, i) => (
+        <span key={i} className="truncate">
+          {p}
+        </span>
+      ))}
+    </span>
+  );
 }
 
 export function AppSettings({ app, me, reload }: { app: AppDetailData; me: Me; reload: () => void }) {
@@ -62,8 +76,9 @@ export function AppSettings({ app, me, reload }: { app: AppDetailData; me: Me; r
       const r = await api.patch<{ redeploy: boolean }>(`/api/apps/${app.slug}`, { name, config: { ...c, publicUrl: normalizeUrl(c.publicUrl) } });
       toast.ok('저장했습니다');
       reload();
-      if (r.redeploy && (await confirm({ title: '다시 배포할까요?', body: '저장소/브랜치/명령/런타임이 바뀌었습니다. 새 설정으로 배포해야 반영됩니다.', confirm: '지금 배포' }))) {
+      if (r.redeploy && (await confirm({ title: '새 설정으로 다시 배포할까요?', body: '저장소, 브랜치, 명령, 런타임 변경은 다시 배포해야 반영됩니다.', confirm: '배포' }))) {
         const d = await api.post<{ id: number }>(`/api/apps/${app.slug}/deploy`, { trigger: 'config' });
+        toast.ok('배포를 시작했습니다');
         navigate(`/apps/${app.slug}?tab=deploys&deploy=${d.id}`);
       }
     } catch (e) {
@@ -77,7 +92,7 @@ export function AppSettings({ app, me, reload }: { app: AppDetailData; me: Me; r
     <div className="space-y-3 pb-20">
       {c.runAsRoot && (
         <Notice tone="red" title="root 로 실행하도록 설정되어 있습니다" icon={<ShieldAlert size={17} />}>
-          앱의 취약점이 서버 전체 장악으로 이어질 수 있습니다. 꼭 필요할 때만 쓰세요 (빌드 · 실행에서 끌 수 있습니다).
+          앱의 취약점이 서버 전체 장악으로 이어질 수 있습니다. 꼭 필요할 때만 쓰세요. 빌드와 실행에서 끌 수 있습니다.
         </Notice>
       )}
 
@@ -110,7 +125,7 @@ export function AppSettings({ app, me, reload }: { app: AppDetailData; me: Me; r
         {c.deployMode === 'delay' && (
           <div className="flex flex-wrap items-center gap-2">
             <input
-              className="input mono w-24"
+              className="input w-24"
               inputMode="numeric"
               value={unit === 'min' ? c.deployDelaySec / 60 : c.deployDelaySec}
               onChange={(e) => {
@@ -129,7 +144,7 @@ export function AppSettings({ app, me, reload }: { app: AppDetailData; me: Me; r
                 { value: 'min', label: '분' },
               ]}
             />
-            <span className="text-[14px] text-muted">뒤 배포 (기다리는 중 또 푸시하면 다시 기다립니다)</span>
+            <span className="text-body text-muted">뒤 배포 (기다리는 중 또 푸시하면 다시 기다립니다)</span>
           </div>
         )}
         <div className="hairline-t -mx-4 px-4 pt-4 sm:-mx-5 sm:px-5">
@@ -137,7 +152,7 @@ export function AppSettings({ app, me, reload }: { app: AppDetailData; me: Me; r
         </div>
       </Fold>
 
-      <Fold icon={<GitBranch size={16} />} title="저장소" summary={`${repoShort} · ${c.branch}${c.rootDir ? ` · ${c.rootDir}` : ''}`}>
+      <Fold icon={<GitBranch size={16} />} title="저장소" summary={<Meta parts={[repoShort, c.branch, c.rootDir]} />}>
         <Field label="저장소 주소">
           <input className="input mono" value={c.repoUrl} onChange={(e) => set('repoUrl', e.target.value)} spellCheck={false} />
         </Field>
@@ -157,7 +172,25 @@ export function AppSettings({ app, me, reload }: { app: AppDetailData; me: Me; r
           </Field>
         </div>
         {c.auth === 'token' && (
-          <Field label="이 앱 전용 GitHub 토큰" hint={secrets?.gitTokenSet ? '설정되어 있습니다. 새 값을 넣으면 바뀝니다 (비우고 저장하면 설정의 기본 토큰 사용).' : '비우면 설정 → GitHub · 알림의 토큰을 씁니다 (github.com 저장소일 때만).'}>
+          <Field label="이 앱 전용 GitHub 토큰" hint={
+              secrets?.gitTokenSet ? (
+                <>
+                  설정되어 있습니다. 새 값을 넣으면 바뀌고, 비우고 저장하면{' '}
+                  <Link to="/settings?tab=connect" target="_blank" rel="noreferrer" className="text-accent-2 hover:opacity-75">
+                    연결 설정
+                  </Link>
+                  의 기본 토큰을 씁니다.
+                </>
+              ) : (
+                <>
+                  비우면{' '}
+                  <Link to="/settings?tab=connect" target="_blank" rel="noreferrer" className="text-accent-2 hover:opacity-75">
+                    연결 설정
+                  </Link>
+                  의 토큰을 씁니다 (github.com 저장소일 때만).
+                </>
+              )
+            }>
             <div className="flex gap-2">
               <input className="input mono" type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder={secrets?.gitTokenSet ? '••••••••' : 'github_pat_...'} autoComplete="off" />
               <Button loading={busy === 'token'} onClick={() => run('token', () => api.put(`/api/apps/${app.slug}/secrets`, { gitToken: token }).then(() => (setToken(''), reloadSecrets())), '토큰을 저장했습니다')}>
@@ -168,7 +201,7 @@ export function AppSettings({ app, me, reload }: { app: AppDetailData; me: Me; r
         )}
         {c.auth === 'deploykey' && (
           <Field label="배포 키 (공개키)" hint="GitHub 저장소 → Settings → Deploy keys 에 등록하세요 (쓰기 권한 불필요)">
-            {deployKey ? <CopyField value={deployKey} /> : <div className="text-[14px] text-muted">저장하면 키가 만들어집니다</div>}
+            {deployKey ? <CopyField value={deployKey} /> : <div className="text-footnote text-muted">저장하면 키가 만들어집니다</div>}
             {deployKey && (
               <Button
                 size="sm"
@@ -177,8 +210,8 @@ export function AppSettings({ app, me, reload }: { app: AppDetailData; me: Me; r
                 icon={<KeyRound size={14} />}
                 loading={busy === 'key'}
                 onClick={async () => {
-                  if (!(await confirm({ title: '배포 키 다시 만들기', body: '기존 키는 더 이상 쓸 수 없습니다. 새 공개키를 GitHub 에 다시 등록해야 합니다.', confirm: '다시 만들기', danger: true }))) return;
-                  run('key', async () => setDeployKey((await api.post<{ publicKey: string }>(`/api/apps/${app.slug}/deploykey`)).publicKey), '새 키를 만들었습니다');
+                  if (!(await confirm({ title: '배포 키를 다시 만들까요?', body: '기존 키는 더 이상 쓸 수 없어 새 공개키를 GitHub에 다시 등록해야 합니다.', confirm: '다시 만들기', danger: true }))) return;
+                  run('key', async () => setDeployKey((await api.post<{ publicKey: string }>(`/api/apps/${app.slug}/deploykey`)).publicKey), '키를 다시 만들었습니다');
                 }}
               >
                 키 다시 만들기
@@ -188,7 +221,7 @@ export function AppSettings({ app, me, reload }: { app: AppDetailData; me: Me; r
         )}
       </Fold>
 
-      <Fold icon={<Play size={16} />} title="빌드 · 실행" summary={`${c.runtime === 'node' ? 'Node.js' : 'Python'} ${c.runtimeVersion}${c.buildCmd ? ` · 빌드 ${c.buildCmd}` : ''}`}>
+      <Fold icon={<Play size={16} />} title="빌드와 실행" summary={<Meta parts={[`${c.runtime === 'node' ? 'Node.js' : 'Python'} ${c.runtimeVersion}`, c.buildCmd && `빌드 ${c.buildCmd}`]} />}>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="런타임">
             <Segmented
@@ -239,16 +272,16 @@ export function AppSettings({ app, me, reload }: { app: AppDetailData; me: Me; r
       <Fold
         icon={<Rocket size={16} />}
         title="배포 세부 동작"
-        summary={`${modeText(c.deployMode, c.deployDelaySec)} · ${c.pollEnabled ? `${c.pollIntervalSec}초마다 새 커밋 확인` : '웹후크로만 감지'} · ${c.autoRollback ? '실패 시 되돌리기' : '되돌리기 꺼짐'}`}
+        summary={`${modeText(c.deployMode, c.deployDelaySec)}, ${c.pollEnabled ? `${c.pollIntervalSec}초마다 새 커밋 확인` : '웹후크로만 감지'}, ${c.autoRollback ? '실패하면 되돌리기' : '되돌리기 꺼짐'}`}
       >
         <Rows>
           <Toggle checked={c.pollEnabled} onChange={(v) => set('pollEnabled', v)} label="주기적으로 새 커밋 확인" sub="웹후크 없이도 동작합니다. 공개 주소가 없어도 됩니다" />
           {c.pollEnabled && (
             <div className="flex items-center justify-between gap-4">
-              <label className="text-[15px]" htmlFor="poll-interval">
+              <label className="text-body" htmlFor="poll-interval">
                 확인 주기 (초)
               </label>
-              <input id="poll-interval" className="input mono w-28 text-right" inputMode="numeric" value={c.pollIntervalSec} onChange={(e) => set('pollIntervalSec', Number(e.target.value.replace(/\D/g, '')) || 60)} />
+              <input id="poll-interval" className="input w-28 text-right" inputMode="numeric" value={c.pollIntervalSec} onChange={(e) => set('pollIntervalSec', Number(e.target.value.replace(/\D/g, '')) || 60)} />
             </div>
           )}
           <Toggle checked={c.autoRollback} onChange={(v) => set('autoRollback', v)} label="실패하면 이전 버전으로 되돌리기" sub="새 버전이 시작에 실패하거나 상태 확인을 통과하지 못할 때" />
@@ -258,20 +291,24 @@ export function AppSettings({ app, me, reload }: { app: AppDetailData; me: Me; r
             <input className="input mono" value={c.healthPath} onChange={(e) => set('healthPath', e.target.value)} placeholder="/health" />
           </Field>
           <Field label="상태 확인 제한 시간 (초)">
-            <input className="input mono" inputMode="numeric" value={c.healthTimeoutSec} onChange={(e) => set('healthTimeoutSec', Number(e.target.value.replace(/\D/g, '')) || 30)} />
+            <input className="input" inputMode="numeric" value={c.healthTimeoutSec} onChange={(e) => set('healthTimeoutSec', Number(e.target.value.replace(/\D/g, '')) || 30)} />
           </Field>
         </div>
-        <Field label="감시 경로 (선택)" hint="이 경로가 바뀐 푸시만 배포합니다 (모노레포용). 한 줄에 하나, 예: apps/api/  ·  비우면 모든 변경">
+        <Field label="감시 경로 (선택)" hint={
+            <>
+              이 경로가 바뀐 푸시만 배포합니다 (모노레포용). 한 줄에 하나씩 적고, 비우면 모든 변경을 배포합니다. 예: <code className="mono">apps/api/</code>
+            </>
+          }>
           <textarea className="input mono min-h-[70px]" value={c.watchPaths.join('\n')} onChange={(e) => set('watchPaths', e.target.value.split('\n'))} placeholder="src/&#10;package.json" />
         </Field>
       </Fold>
 
-      <Fold icon={<HardDrive size={16} />} title="서버에 남길 파일" summary={`${c.preservePaths.filter((x) => x.trim()).length}개 경로 · 배포해도 그대로 유지`}>
-        <p className="text-[14px] leading-relaxed text-muted">
+      <Fold icon={<HardDrive size={16} />} title="서버에 남길 파일" summary={`경로 ${c.preservePaths.filter((x) => x.trim()).length}개, 배포해도 그대로 유지`}>
+        <p className="text-footnote text-muted">
           배포는 git pull 처럼 동작합니다. 저장소에 없는 파일(SQLite DB, 업로드 등)은 건드리지 않고, 아래 경로는 저장소에 같은 파일이 있어도 서버의 것을 유지합니다. 덮어쓰거나 지워질 파일은 배포 전에 자동으로 백업합니다.
         </p>
         <Field label="유지할 경로" hint="gitignore 형식. /data/ = 루트의 data 폴더, *.db = 모든 위치의 .db 파일">
-          <textarea className="input mono min-h-[150px] text-[13px]" value={c.preservePaths.join('\n')} onChange={(e) => set('preservePaths', e.target.value.split('\n'))} spellCheck={false} />
+          <textarea className="input mono min-h-[150px] text-footnote" value={c.preservePaths.join('\n')} onChange={(e) => set('preservePaths', e.target.value.split('\n'))} spellCheck={false} />
         </Field>
         <Field label="서버에서 직접 고친 저장소 파일은">
           <select className="input sm:w-96" value={c.localChanges} onChange={(e) => set('localChanges', e.target.value as AppConfig['localChanges'])}>
@@ -282,19 +319,19 @@ export function AppSettings({ app, me, reload }: { app: AppDetailData; me: Me; r
       </Fold>
 
       <Fold icon={<Gauge size={16} />} title="리소스 제한" summary={resourceSummary(c.resources)}>
-        <p className="text-[14px] leading-relaxed text-muted">이 앱만 따로 제한합니다. 저장하면 재시작 없이 바로 적용됩니다. 비우면 제한 없음.</p>
+        <p className="text-footnote text-muted">이 앱만 따로 제한합니다. 저장하면 재시작 없이 바로 적용됩니다. 비우면 제한 없음.</p>
         <div className="grid gap-4 sm:grid-cols-3">
           <Field label="CPU (코어)" hint="0.5 = 코어 절반, 2 = 두 개">
-            <input className="input mono" inputMode="decimal" value={c.resources.cpu ?? ''} onChange={(e) => set('resources', { ...c.resources, cpu: numOrNull(e.target.value) })} placeholder="제한 없음" />
+            <input className="input" inputMode="decimal" value={c.resources.cpu ?? ''} onChange={(e) => set('resources', { ...c.resources, cpu: numOrNull(e.target.value) })} placeholder="제한 없음" />
           </Field>
           <Field label="메모리 (MB)" hint="넘으면 강제로 재시작됩니다">
-            <input className="input mono" inputMode="numeric" value={c.resources.memoryMB ?? ''} onChange={(e) => set('resources', { ...c.resources, memoryMB: numOrNull(e.target.value.replace(/\D/g, '')) })} placeholder="제한 없음" />
+            <input className="input" inputMode="numeric" value={c.resources.memoryMB ?? ''} onChange={(e) => set('resources', { ...c.resources, memoryMB: numOrNull(e.target.value.replace(/\D/g, '')) })} placeholder="제한 없음" />
           </Field>
           <Field label="스왑 (MB)" hint="0 = 스왑 사용 안 함">
-            <input className="input mono" inputMode="numeric" value={c.resources.swapMB ?? ''} onChange={(e) => set('resources', { ...c.resources, swapMB: numOrNull(e.target.value.replace(/\D/g, '')) })} placeholder="제한 없음" />
+            <input className="input" inputMode="numeric" value={c.resources.swapMB ?? ''} onChange={(e) => set('resources', { ...c.resources, swapMB: numOrNull(e.target.value.replace(/\D/g, '')) })} placeholder="제한 없음" />
           </Field>
           <Field label="최대 프로세스/스레드">
-            <input className="input mono" inputMode="numeric" value={c.resources.tasks ?? ''} onChange={(e) => set('resources', { ...c.resources, tasks: numOrNull(e.target.value.replace(/\D/g, '')) })} placeholder="제한 없음" />
+            <input className="input" inputMode="numeric" value={c.resources.tasks ?? ''} onChange={(e) => set('resources', { ...c.resources, tasks: numOrNull(e.target.value.replace(/\D/g, '')) })} placeholder="제한 없음" />
           </Field>
           <Field label="CPU 우선순위" hint="CPU 가 부족할 때 나눠 갖는 비율">
             <select className="input" value={c.resources.cpuWeight ?? ''} onChange={(e) => set('resources', { ...c.resources, cpuWeight: numOrNull(e.target.value) })}>
@@ -308,7 +345,7 @@ export function AppSettings({ app, me, reload }: { app: AppDetailData; me: Me; r
         </div>
       </Fold>
 
-      <Fold icon={<Bell size={16} />} title="디스코드 알림" summary={`${secrets?.discordWebhook ? '이 앱 전용 웹후크' : '설정의 기본 웹후크'} · ${notifyOn}개 항목`}>
+      <Fold icon={<Bell size={16} />} title="디스코드 알림" summary={`${secrets?.discordWebhook ? '이 앱 전용 웹후크' : '설정의 기본 웹후크'}, 알림 ${notifyOn}개`}>
         <Field label="이 앱 전용 웹후크" hint="비우면 설정의 기본 웹후크를 씁니다">
           <div className="flex flex-wrap gap-2 sm:flex-nowrap">
             <input className="input mono" value={discord} onChange={(e) => setDiscord(e.target.value)} placeholder="https://discord.com/api/webhooks/..." />
@@ -336,8 +373,8 @@ export function AppSettings({ app, me, reload }: { app: AppDetailData; me: Me; r
         </Rows>
       </Fold>
 
-      <Fold icon={<Webhook size={16} />} title="GitHub 웹후크" summary="선택 · 푸시를 몇 초 안에 바로 감지">
-        <p className="text-[14px] leading-relaxed text-muted">
+      <Fold icon={<Webhook size={16} />} title="GitHub 웹후크" summary="선택 사항, 푸시를 몇 초 안에 감지">
+        <p className="text-footnote text-muted">
           없어도 주기적 확인으로 배포됩니다. 더 빨리 감지하려면 GitHub 저장소 → Settings → Webhooks 에 아래 값을 넣으세요. 이 주소만 cloudflared 로 공개하면 됩니다 (서명으로 검증하므로 로그인 없이 받습니다).
         </p>
         <Field label="Payload URL">
@@ -358,20 +395,27 @@ export function AppSettings({ app, me, reload }: { app: AppDetailData; me: Me; r
             className="-ml-3"
             loading={busy === 'wh'}
             onClick={async () => {
-              if (!(await confirm({ title: '웹후크 비밀값 다시 만들기', body: 'GitHub 에 등록한 Secret 도 바꿔야 합니다.', confirm: '다시 만들기' }))) return;
-              run('wh', () => api.put(`/api/apps/${app.slug}/secrets`, { regenerateWebhook: true }).then(reloadSecrets), '새 비밀값을 만들었습니다');
+              if (!(await confirm({ title: '웹후크 비밀값을 다시 만들까요?', body: 'GitHub에 등록한 Secret도 새 값으로 바꿔야 합니다.', confirm: '다시 만들기' }))) return;
+              run('wh', () => api.put(`/api/apps/${app.slug}/secrets`, { regenerateWebhook: true }).then(reloadSecrets), '비밀값을 다시 만들었습니다');
             }}
           >
             비밀값 다시 만들기
           </Button>
-          {!settings?.panel.baseUrl && <span className="text-[13px] text-muted">설정 → 패널 접속에 공개 주소를 넣으면 URL 이 그 주소로 표시됩니다</span>}
+          {!settings?.panel.baseUrl && (
+            <span className="text-footnote text-muted">
+              <Link to="/settings?tab=access" target="_blank" rel="noreferrer" className="text-accent-2 hover:opacity-75">
+                패널 접속 설정
+              </Link>
+              에 공개 주소를 넣으면 URL이 그 주소로 표시됩니다.
+            </span>
+          )}
         </div>
       </Fold>
 
       <Fold
         icon={<Archive size={16} />}
         title="백업"
-        summary={c.backup.enabled ? `예약 백업 ${c.backup.mode === 'daily' ? `매일 ${c.backup.time}` : `${c.backup.intervalHours}시간마다`} · ${c.backup.keep}개 보관` : '예약 백업 꺼짐 · 지금 백업 가능'}
+        summary={c.backup.enabled ? `${c.backup.mode === 'daily' ? `매일 ${c.backup.time}` : `${c.backup.intervalHours}시간마다`}, ${c.backup.keep}개 보관` : '예약 백업 꺼짐, 지금 백업 가능'}
       >
         <Toggle checked={c.backup.enabled} onChange={(v) => set('backup', { ...c.backup, enabled: v })} label="서버에 남길 파일을 주기적으로 백업" sub="SQLite 같은 파일 DB 를 쓰는 앱이라면 켜 두세요" />
         {c.backup.enabled && (
@@ -384,15 +428,15 @@ export function AppSettings({ app, me, reload }: { app: AppDetailData; me: Me; r
             </Field>
             {c.backup.mode === 'daily' ? (
               <Field label="시각">
-                <input className="input mono" type="time" value={c.backup.time} onChange={(e) => set('backup', { ...c.backup, time: e.target.value })} />
+                <input className="input" type="time" value={c.backup.time} onChange={(e) => set('backup', { ...c.backup, time: e.target.value })} />
               </Field>
             ) : (
               <Field label="간격 (시간)">
-                <input className="input mono w-24" inputMode="numeric" value={c.backup.intervalHours} onChange={(e) => set('backup', { ...c.backup, intervalHours: Number(e.target.value.replace(/\D/g, '')) || 6 })} />
+                <input className="input w-24" inputMode="numeric" value={c.backup.intervalHours} onChange={(e) => set('backup', { ...c.backup, intervalHours: Number(e.target.value.replace(/\D/g, '')) || 6 })} />
               </Field>
             )}
             <Field label="보관 개수">
-              <input className="input mono w-24" inputMode="numeric" value={c.backup.keep} onChange={(e) => set('backup', { ...c.backup, keep: Number(e.target.value.replace(/\D/g, '')) || 7 })} />
+              <input className="input w-24" inputMode="numeric" value={c.backup.keep} onChange={(e) => set('backup', { ...c.backup, keep: Number(e.target.value.replace(/\D/g, '')) || 7 })} />
             </Field>
           </div>
         )}
@@ -401,13 +445,13 @@ export function AppSettings({ app, me, reload }: { app: AppDetailData; me: Me; r
         </div>
       </Fold>
 
-      <Fold icon={<Trash2 size={16} />} title="초기화 · 삭제" summary="클린 재배포, 앱 삭제" danger>
+      <Fold icon={<Trash2 size={16} />} title="초기화와 삭제" summary="클린 재배포, 앱 삭제" danger>
         <Danger app={app} me={me} />
       </Fold>
 
       <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 flex justify-center p-4 lg:pl-60">
         <div className={cx('chrome flex items-center gap-2 rounded-full py-1.5 pl-5 pr-1.5 shadow-pop transition-all duration-200', dirty ? 'pointer-events-auto translate-y-0 opacity-100' : 'translate-y-20 opacity-0')}>
-          <span className="mr-1 text-[14px] font-medium text-fg-2">저장하지 않은 변경이 있습니다</span>
+          <span className="mr-1 text-body font-medium text-fg-2">저장하지 않은 변경이 있습니다</span>
           <Button size="sm" variant="ghost" onClick={() => (setC(app.config), setName(app.name))}>
             되돌리기
           </Button>
@@ -426,7 +470,7 @@ function AppBackups({ app, me }: { app: AppDetailData; me: Me }) {
   const { busy, run } = useAction();
   return (
     <div className="space-y-4">
-      <p className="text-[14px] leading-relaxed text-muted">"데이터 백업" 은 서버에 남길 파일과 환경변수만, "전체 폴더 백업" 은 node_modules 를 뺀 앱 폴더 전체를 저장합니다.</p>
+      <p className="text-footnote text-muted">"데이터 백업" 은 서버에 남길 파일과 환경변수만, "전체 폴더 백업" 은 node_modules 를 뺀 앱 폴더 전체를 저장합니다.</p>
       <div className="flex flex-wrap gap-2">
         <Button variant="primary" size="sm" icon={<Upload size={14} />} loading={busy === 'data'} onClick={() => run('data', async () => setJob((await api.post<{ jobId: number }>('/api/backups', { kind: 'app', slug: app.slug })).jobId))}>
           데이터 백업
@@ -451,19 +495,19 @@ function Danger({ app, me }: { app: AppDetailData; me: Me }) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div className="text-[15px] font-medium">클린 재배포</div>
-          <p className="mt-0.5 max-w-xl text-[13px] leading-relaxed text-muted">의존성을 처음부터 다시 설치하고(Python 은 가상환경도 새로 만듦) 배포합니다. 패키지가 꼬였을 때 쓰세요.</p>
+          <div className="text-body font-medium">클린 재배포</div>
+          <p className="mt-0.5 max-w-xl text-footnote text-muted">의존성을 처음부터 다시 설치하고(Python 은 가상환경도 새로 만듦) 배포합니다. 패키지가 꼬였을 때 쓰세요.</p>
         </div>
         <Button
           size="sm"
           icon={<RotateCcw size={15} />}
           loading={busy === 'clean'}
           onClick={async () => {
-            if (!(await confirm({ title: '클린 재배포', body: '의존성을 새로 설치하고 현재 브랜치의 최신 커밋으로 배포합니다.', confirm: '재배포' }))) return;
+            if (!(await confirm({ title: `${josa(app.name, '을', '를')} 클린 재배포할까요?`, body: '의존성을 새로 설치하고 현재 브랜치의 최신 커밋으로 배포합니다.', confirm: '클린 재배포' }))) return;
             run('clean', async () => {
               const r = await api.post<{ id: number }>(`/api/apps/${app.slug}/deploy`, { clean: true });
               navigate(`/apps/${app.slug}?tab=deploys&deploy=${r.id}`);
-            });
+            }, '클린 재배포를 시작했습니다');
           }}
         >
           클린 재배포
@@ -471,8 +515,8 @@ function Danger({ app, me }: { app: AppDetailData; me: Me }) {
       </div>
       <div className="hairline-t -mx-4 flex flex-wrap items-center justify-between gap-3 px-4 pt-4 sm:-mx-5 sm:px-5">
         <div>
-          <div className="text-[15px] font-medium text-bad">앱 삭제</div>
-          <p className="mt-0.5 max-w-xl text-[13px] leading-relaxed text-muted">프로세스를 멈추고 코드, 환경변수, 배포 기록, 서비스, 전용 계정을 모두 지웁니다. 지우기 전에 최종 백업을 남길 수 있습니다.</p>
+          <div className="text-body font-medium text-bad">앱 삭제</div>
+          <p className="mt-0.5 max-w-xl text-footnote text-muted">프로세스를 멈추고 코드, 환경변수, 배포 기록, 서비스, 전용 계정을 모두 지웁니다. 지우기 전에 최종 백업을 남길 수 있습니다.</p>
         </div>
         <Button size="sm" variant="danger" icon={<Trash2 size={15} />} onClick={() => setOpen(true)}>
           앱 삭제
@@ -481,12 +525,12 @@ function Danger({ app, me }: { app: AppDetailData; me: Me }) {
       <DangerDialog
         open={open}
         onClose={() => setOpen(false)}
-        title={`${app.name} 삭제`}
+        title={`${josa(app.name, '을', '를')} 삭제할까요?`}
         target={app.slug}
         needTotp={me.totpEnabled}
         items={[
           <>
-            앱 폴더 <code className="mono text-[13px]">{app.dir}</code> (코드, 로컬 DB 파일, 업로드 등)
+            앱 폴더 <code className="mono text-footnote">{app.dir}</code> (코드, 로컬 DB 파일, 업로드 등)
           </>,
           `환경변수 ${app.envCount}개, 배포 기록, 배포 키`,
           `systemd 서비스 hrone-app-${app.slug} 와 계정 hr-${app.slug}`,
@@ -494,7 +538,7 @@ function Danger({ app, me }: { app: AppDetailData; me: Me }) {
         ]}
         options={
           <>
-            <Toggle checked={backup} onChange={setBackup} label="삭제 전 최종 백업 만들기 (권장)" sub="앱 폴더 전체 + 환경변수를 서버 → 백업에 남깁니다" />
+            <Toggle checked={backup} onChange={setBackup} label="삭제 전 최종 백업 만들기 (권장)" sub="앱 폴더 전체와 환경변수를 서버의 백업 목록에 남깁니다" />
             {app.links.map((l) => (
               <Toggle
                 key={l.slug}
@@ -508,7 +552,7 @@ function Danger({ app, me }: { app: AppDetailData; me: Me }) {
         }
         onConfirm={async (auth) => {
           const r = await api.post<{ backupFile: string | null }>(`/api/apps/${app.slug}/terminate`, { ...auth, backup, databases: dropDbs });
-          toast.ok(`삭제했습니다${r.backupFile ? ' (최종 백업은 서버 → 백업에 있습니다)' : ''}`);
+          toast.ok(`삭제했습니다${r.backupFile ? '. 최종 백업은 서버의 백업 목록에 있습니다' : ''}`);
           navigate('/apps');
         }}
       />

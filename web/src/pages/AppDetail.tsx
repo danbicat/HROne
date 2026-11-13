@@ -18,7 +18,7 @@ import {
   Wand2,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { AreaChart, Sparkline } from '../components/Charts';
+import { AreaChart } from '../components/Charts';
 import { EnvEditor } from '../components/EnvEditor';
 import { FileBrowser } from '../components/FileBrowser';
 import { DeployLog, LogViewer } from '../components/LogViewer';
@@ -39,6 +39,7 @@ import {
   PageHeader,
   Row,
   SectionHeader,
+  Stats,
   StatusBadge,
   Tabs,
   Toggle,
@@ -49,7 +50,7 @@ import {
 } from '../components/ui';
 import type { Me } from '../components/Layout';
 import { api, errorText } from '../lib/api';
-import { ago, bytes, dateTime, duration, pct, sha } from '../lib/format';
+import { ago, bytes, dateTime, duration, josa, sha } from '../lib/format';
 import { Link, navigate, setQuery, useLocation, useTitle } from '../lib/router';
 import { useApi, useUnit, type UnitStatus } from '../lib/store';
 import { AppSettings } from './AppSettings';
@@ -141,10 +142,9 @@ export function AppDetail({ slug, me }: { slug: string; me: Me }) {
             <StatusBadge state={state} />
             {app.busy && <Badge tone="purple">배포 중</Badge>}
             <a href={app.repoWeb} target="_blank" rel="noreferrer" className="inline-flex min-w-0 items-center gap-1 hover:text-fg">
-              <GitBranch size={14} className="shrink-0" />
-              <span className="truncate">
-                {app.repoUrl.replace(/^https?:\/\/(github\.com\/)?|\.git$/g, '')} · {app.branch}
-              </span>
+              <span className="truncate">{app.repoUrl.replace(/^https?:\/\/(github\.com\/)?|\.git$/g, '')}</span>
+              <GitBranch size={14} className="ml-1.5 shrink-0" />
+              <span className="shrink-0">{app.branch}</span>
             </a>
             {app.publicUrl ? (
               <a href={app.publicUrl} target="_blank" rel="noreferrer" className="inline-flex min-w-0 items-center gap-1 text-accent-2 hover:opacity-75">
@@ -152,11 +152,11 @@ export function AppDetail({ slug, me }: { slug: string; me: Me }) {
                 <ExternalLink size={13} className="shrink-0" />
               </a>
             ) : (
-              app.port && <span className="mono text-[13px]">127.0.0.1:{app.port}</span>
+              app.port && <span>127.0.0.1:{app.port}</span>
             )}
           </span>
         }
-        actions={<AppPower slug={slug} state={st?.state} deployed={!!app.deployedSha} size="sm" />}
+        actions={<AppPower slug={slug} name={app.name} state={st?.state} deployed={!!app.deployedSha} size="sm" />}
       />
 
       <Tabs
@@ -167,7 +167,7 @@ export function AppDetail({ slug, me }: { slug: string; me: Me }) {
           { value: 'console', label: '로그' },
           { value: 'files', label: '파일' },
           { value: 'deploys', label: '배포', badge: app.openDeploy?.status === 'pending' ? <span className="h-1.5 w-1.5 rounded-full bg-warn-dot" /> : undefined },
-          { value: 'env', label: '환경변수', badge: app.envCount + app.links.length ? <span className="text-[12px] text-muted">{app.envCount + app.links.length}</span> : undefined },
+          { value: 'env', label: '환경변수', badge: app.envCount + app.links.length ? <span className="text-caption text-muted">{app.envCount + app.links.length}</span> : undefined },
           { value: 'settings', label: '설정' },
         ]}
       />
@@ -253,7 +253,7 @@ function PublicUrlEditor({ app, reload }: { app: AppDetailData; reload: () => vo
 
   return app.publicUrl ? (
     <div className="flex items-center justify-between gap-3">
-      <a href={app.publicUrl} target="_blank" rel="noreferrer" className="inline-flex min-w-0 items-center gap-1.5 text-[17px] font-medium text-accent-2 hover:opacity-75">
+      <a href={app.publicUrl} target="_blank" rel="noreferrer" className="inline-flex min-w-0 items-center gap-1.5 text-headline font-medium text-accent-2 hover:opacity-75">
         <span className="truncate">{hostOf(app.publicUrl)}</span>
         <ExternalLink size={15} className="shrink-0" />
       </a>
@@ -263,7 +263,7 @@ function PublicUrlEditor({ app, reload }: { app: AppDetailData; reload: () => vo
     </div>
   ) : (
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <p className="min-w-0 flex-1 text-[14px] leading-relaxed text-muted">
+      <p className="min-w-0 flex-1 text-footnote text-muted">
         {app.port ? 'cloudflared 터널의 서비스 주소를 아래 주소로 지정하고, 연결한 도메인을 적어 두면 여기와 앱 목록에 링크로 나옵니다.' : '연결한 도메인을 적어 두면 여기와 앱 목록에 링크로 나옵니다.'}
       </p>
       <Button size="sm" variant="secondary" icon={<Plus size={14} />} onClick={() => setEditing(true)}>
@@ -290,27 +290,22 @@ function Overview({ app, st, reload }: { app: AppDetailData; st: UnitStatus | nu
     const at = (st?.listen ?? []).filter((l) => l.port === p);
     const loopbackOk = at.some((l) => ['127.0.0.1', '::1', 'localhost', '0.0.0.0', '::', '*', '[::]'].includes(l.addr));
     const ok = await confirm({
-      title: '포트를 자동으로 맞출까요?',
+      title: `설정 포트를 ${p}번으로 맞출까요?`,
       body: (
         <>
-          앱이 실제로 {p} 포트에서 열려 있습니다. HROne 설정의 포트를 {app.port} → {p} 로 바꿉니다. 앱은 다시 시작하지 않습니다.
+          HROne 설정만 {app.port}번에서 {p}번으로 바꾸고, 앱은 다시 시작하지 않습니다.
           {!loopbackOk && at[0] && <span className="mt-2 block text-warn">앱이 {at[0].addr} 에서만 열려 있어 127.0.0.1:{p} 로는 접속되지 않을 수 있습니다.</span>}
         </>
       ),
       confirm: '맞추기',
     });
     if (!ok) return;
-    if (await run(`port-${p}`, () => api.patch(`/api/apps/${app.slug}`, { config: { port: p } }), `포트를 ${p} 로 맞췄습니다`)) reload();
+    if (await run(`port-${p}`, () => api.patch(`/api/apps/${app.slug}`, { config: { port: p } }), `포트를 ${p}번으로 맞췄습니다`)) reload();
   };
   const memLimit = app.config.resources.memoryMB ? app.config.resources.memoryMB * 1024 * 1024 : null;
 
   const on = st?.state === 'running';
-  const tiles: { label: string; value: string; sub: string; spark?: number[]; max?: number }[] = [
-    { label: 'CPU', value: on ? pct(st!.cpu, 1) : '-', sub: app.config.resources.cpu ? `상한 ${app.config.resources.cpu}코어` : '제한 없음', spark: hist.map((h) => h.cpu) },
-    { label: '메모리', value: on ? bytes(st!.memory) : '-', sub: memLimit ? `상한 ${bytes(memLimit, 0)}` : '제한 없음', spark: hist.map((h) => h.mem), max: memLimit ?? undefined },
-    { label: '가동 시간', value: on && st!.since ? duration((Date.now() - st!.since) / 1000) : '-', sub: `재시작 ${st?.restarts ?? 0}회` },
-    { label: '프로세스', value: on ? `PID ${st!.pid}` : '-', sub: st?.tasks ? `스레드/작업 ${st.tasks}` : '' },
-  ];
+  const mem = on ? bytes(st!.memory).split(' ') : null;
 
   return (
     <div className="space-y-9">
@@ -328,20 +323,22 @@ function Overview({ app, st, reload }: { app: AppDetailData; st: UnitStatus | nu
           {wrongPort && (
             <Notice tone="yellow" title={`앱이 설정된 포트(${app.port})가 아닌 곳에서 열려 있습니다`} icon={<AlertTriangle size={17} />}>
               <span>
-                실제: <span className="mono text-[13px]">{(st?.listen ?? []).map((l) => `${l.addr}:${l.port}`).join(', ')}</span>. 앱 코드에 포트가 정해져 있다면 HROne 설정을 그 포트로 맞추면 됩니다.
+                앱이 연 주소는 <span className="mono text-footnote">{(st?.listen ?? []).map((l) => `${l.addr}:${l.port}`).join(', ')}</span>입니다. 앱 코드에 포트가 정해져 있다면 HROne 설정을 그 포트로 맞추세요.
               </span>
               <span className="mt-3 flex flex-wrap items-center gap-2">
                 {listenPorts.map((p) => (
                   <Button key={p} size="sm" variant="primary" icon={<Wand2 size={14} />} loading={busy === `port-${p}`} onClick={() => fixPort(p)}>
-                    포트 {p} 에 맞추기
+                    {p}번 포트로 맞추기
                   </Button>
                 ))}
-                <span className="text-[13px] text-muted">코드를 고치려면 process.env.PORT / os.environ["PORT"] 를 쓰세요.</span>
+                <span className="text-footnote text-muted">
+                  코드를 고치려면 <code className="mono">process.env.PORT</code>나 <code className="mono">os.environ["PORT"]</code>를 쓰세요.
+                </span>
               </span>
             </Notice>
           )}
           {app.lastPollError && (
-            <Notice tone="red" title="저장소 확인 실패" icon={<AlertTriangle size={17} />}>
+            <Notice tone="red" title="저장소에서 새 커밋을 확인하지 못했습니다" icon={<AlertTriangle size={17} />}>
               {app.lastPollError}
             </Notice>
           )}
@@ -349,38 +346,35 @@ function Overview({ app, st, reload }: { app: AppDetailData; st: UnitStatus | nu
       ) : null}
       {app.openDeploy && (app.openDeploy.status === 'pending' || app.openDeploy.status === 'scheduled') && <OpenDeployCard id={app.openDeploy.id} name={app.name} />}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-        {tiles.map((t) => (
-          <div key={t.label} className="card flex min-w-0 flex-col p-4 sm:p-5">
-            <div className="text-[13px] font-medium text-muted">{t.label}</div>
-            <div className="mt-2 truncate text-[26px] font-semibold leading-[34px] tracking-[-0.03em] sm:text-[30px]">{t.value}</div>
-            <div className="mt-1 truncate text-[12.5px] text-muted">{t.sub || '\u00a0'}</div>
-            <div className="mt-auto pt-3">{t.spark && t.spark.length > 1 && on ? <Sparkline values={t.spark} max={t.max} height={28} /> : <div className="h-7" />}</div>
-          </div>
-        ))}
-      </div>
+      <Stats
+        items={[
+          { label: 'CPU', value: on && st!.cpu != null ? st!.cpu.toFixed(1) : '-', unit: on && st!.cpu != null ? '%' : undefined, sub: app.config.resources.cpu ? `상한 ${app.config.resources.cpu}코어` : '제한 없음' },
+          { label: '메모리', value: mem ? mem[0] : '-', unit: mem?.[1], sub: memLimit ? `상한 ${bytes(memLimit, 0)}` : '제한 없음' },
+          { label: '가동 시간', value: on && st!.since ? duration((Date.now() - st!.since) / 1000) : '-', sub: `재시작 ${st?.restarts ?? 0}회` },
+        ]}
+      />
 
       <div className="grid gap-9 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-8">
         <div className="min-w-0 space-y-9">
           <Card title="사용량" actions={<span className="text-muted">최근 10분</span>}>
             <div className="grid gap-6 md:grid-cols-2">
               <div className="min-w-0">
-                <div className="mb-2 text-[13px] text-muted">CPU (코어 1개 = 100%)</div>
+                <div className="mb-2 text-footnote text-muted">CPU (코어 1개 = 100%)</div>
                 <AreaChart times={hist.map((h) => h.t)} series={[{ label: 'CPU', color: 'var(--color-accent)', values: hist.map((h) => h.cpu) }]} format={(v) => `${v.toFixed(0)}%`} height={150} />
               </div>
               <div className="min-w-0">
-                <div className="mb-2 text-[13px] text-muted">메모리</div>
+                <div className="mb-2 text-footnote text-muted">메모리</div>
                 <AreaChart times={hist.map((h) => h.t)} max={memLimit ?? undefined} series={[{ label: '메모리', color: 'var(--color-info)', values: hist.map((h) => h.mem) }]} format={(v) => bytes(v, 0)} height={150} />
               </div>
             </div>
           </Card>
 
           <Card title="접속">
-            <div className="space-y-4 text-[15px]">
+            <div className="space-y-4 text-body">
               <PublicUrlEditor app={app} reload={reload} />
               {app.port ? <CopyField value={`http://127.0.0.1:${app.port}`} /> : <p className="text-muted">포트 없이 실행되는 앱입니다 (봇 등).</p>}
               {(st?.listen ?? []).length > 0 && (
-                <div className="text-[13px] text-muted">
+                <div className="text-footnote text-muted">
                   실제로 열린 주소: <span className="mono">{st!.listen.map((l) => `${l.addr}:${l.port}`).join(', ')}</span>
                 </div>
               )}
@@ -392,19 +386,19 @@ function Overview({ app, st, reload }: { app: AppDetailData; st: UnitStatus | nu
           <Card title="배포">
             <KV
               items={[
-                ['현재 커밋', <span className="mono text-[14px]">{sha(app.deployedSha)}</span>],
+                ['현재 커밋', <span className="mono">{sha(app.deployedSha)}</span>],
                 ['배포 시각', app.deployedAt ? (
                     <span>
                       {ago(app.deployedAt)}
-                      <span className="block text-[13px] text-muted">{dateTime(app.deployedAt)}</span>
+                      <span className="block text-footnote text-muted">{dateTime(app.deployedAt)}</span>
                     </span>
                   ) : (
                     '-'
                   )],
                 ['푸시하면', modeText(app.deployMode, app.deployDelaySec)],
-                ['새 커밋 확인', app.config.pollEnabled ? `${app.config.pollIntervalSec}초마다 · 마지막 ${ago(app.lastPollAt)}` : '꺼짐 (웹후크만)'],
+                ['새 커밋 확인', app.config.pollEnabled ? `${app.config.pollIntervalSec}초마다, 마지막 ${ago(app.lastPollAt)}` : '꺼짐 (웹후크만)'],
                 ...(app.rejectedSha && app.lastSeenSha === app.rejectedSha
-                  ? ([['건너뛴 커밋', <span className="mono text-[14px] text-warn">{sha(app.rejectedSha)} (거절/실패/롤백)</span>]] as [string, React.ReactNode][])
+                  ? ([['건너뛴 커밋', <span className="text-warn"><span className="mono">{sha(app.rejectedSha)}</span> (거절/실패/롤백)</span>]] as [string, React.ReactNode][])
                   : []),
               ]}
             />
@@ -415,11 +409,11 @@ function Overview({ app, st, reload }: { app: AppDetailData; st: UnitStatus | nu
                 icon={<Rocket size={14} />}
                 loading={busy === 'deploy'}
                 onClick={async () => {
-                  if (!(await confirm({ title: '지금 배포', body: '원격 브랜치의 최신 커밋을 받아 바로 배포합니다 (적용 방식과 상관없이).', confirm: '배포' }))) return;
+                  if (!(await confirm({ title: `${josa(app.name, '을', '를')} 지금 배포할까요?`, body: '적용 방식과 상관없이 원격 브랜치의 최신 커밋을 바로 배포합니다.', confirm: '배포' }))) return;
                   run('deploy', async () => {
                     const r = await api.post<{ id: number }>(`/api/apps/${app.slug}/deploy`, {});
                     navigate(`/apps/${app.slug}?tab=deploys&deploy=${r.id}`);
-                  });
+                  }, '배포를 시작했습니다');
                 }}
               >
                 지금 배포
@@ -432,7 +426,7 @@ function Overview({ app, st, reload }: { app: AppDetailData; st: UnitStatus | nu
                 onClick={() =>
                   run('check', async () => {
                     const r = await api.post<{ sha: string; upToDate: boolean }>(`/api/apps/${app.slug}/check`);
-                    toast.info(r.upToDate ? '이미 최신입니다' : `새 커밋 ${sha(r.sha)} 발견 — ${modeText(app.deployMode, app.deployDelaySec)}`);
+                    toast.info(r.upToDate ? '이미 최신 커밋입니다' : `새 커밋 ${sha(r.sha)}을 찾았습니다. ${modeText(app.deployMode, app.deployDelaySec)}합니다`);
                     reload();
                   })
                 }
@@ -446,9 +440,11 @@ function Overview({ app, st, reload }: { app: AppDetailData; st: UnitStatus | nu
             <KV
               items={[
                 ['런타임', `${app.runtime === 'node' ? 'Node.js' : 'Python'} ${app.runtimeVersion}`],
-                ['식별자', <span className="mono text-[14px]">{app.slug}</span>],
-                ['시작 명령', <code className="mono text-[13px]">{app.config.startCmd || '-'}</code>],
-                ['폴더', <span className="mono text-[13px] break-all">{app.dir}</span>],
+                ['식별자', <span className="mono">{app.slug}</span>],
+                ['시작 명령', <code className="mono text-footnote">{app.config.startCmd || '-'}</code>],
+                ['폴더', <span className="mono text-footnote break-all">{app.dir}</span>],
+                ['PID', on && st!.pid ? <span className="mono">{st!.pid}</span> : '-'],
+                ...(on && st?.tasks ? ([['스레드/작업', `${st.tasks}개`]] as [string, React.ReactNode][]) : []),
               ]}
             />
             <div className="hairline-t -mx-5 mt-2 px-5 pt-3.5">
@@ -466,7 +462,7 @@ function Overview({ app, st, reload }: { app: AppDetailData; st: UnitStatus | nu
                   icon={<Skull size={14} />}
                   loading={busy === 'kill'}
                   onClick={async () => {
-                    if (!(await confirm({ title: '강제 종료 (SIGKILL)', body: '정상 종료를 기다리지 않고 프로세스를 즉시 죽입니다. 저장 중이던 데이터가 손상될 수 있습니다. 응답이 없을 때만 쓰세요.', confirm: '강제 종료', danger: true }))) return;
+                    if (!(await confirm({ title: `${josa(app.name, '을', '를')} 강제 종료할까요?`, body: '정상 종료를 기다리지 않고 프로세스를 바로 끝내므로(SIGKILL) 저장 중이던 데이터가 손상될 수 있습니다.', confirm: '강제 종료', danger: true }))) return;
                     run('kill', () => api.post(`/api/apps/${app.slug}/action`, { action: 'kill' }), '강제 종료했습니다');
                   }}
                 >
@@ -508,7 +504,9 @@ function Deploys({ app }: { app: AppDetailData }) {
   if (!data?.length)
     return (
       <div className="card">
-        <Empty icon={<History />} title="배포 기록이 없습니다" />
+        <Empty icon={<History />} title="아직 배포 기록이 없습니다">
+          저장소에 푸시하거나 개요에서 지금 배포를 누르면 여기에 기록이 남습니다.
+        </Empty>
       </div>
     );
 
@@ -530,14 +528,16 @@ function Deploys({ app }: { app: AppDetailData }) {
               >
                 <span className="min-w-0 flex-1">
                   <span className="flex min-w-0 items-center gap-2">
-                    <DeployBadge status={d.status} />
-                    <span className="mono shrink-0 text-[13px] text-fg-2">{sha(d.to_sha)}</span>
-                    <span className="min-w-0 truncate text-[15px]">{head?.message ?? TRIGGER[d.trigger]}</span>
+                    {d.status !== 'success' && <DeployBadge status={d.status} />}
+                    <span className="mono shrink-0 text-footnote text-fg-2">{sha(d.to_sha)}</span>
+                    <span className="min-w-0 truncate text-body">{head?.message ?? TRIGGER[d.trigger]}</span>
                   </span>
-                  <span className="mt-1 block truncate text-[13px] text-muted">
-                    #{d.id} · {TRIGGER[d.trigger]}
-                    {d.triggered_by ? ` · ${d.triggered_by}` : ''} · {ago(d.created_at)}
-                    {dur !== null ? ` · ${dur}초` : ''}
+                  <span className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-footnote text-muted">
+                    <span>#{d.id}</span>
+                    <span>{TRIGGER[d.trigger]}</span>
+                    {d.triggered_by && <span>{d.triggered_by}</span>}
+                    <span>{ago(d.created_at)}</span>
+                    {dur !== null && <span>{dur}초 걸림</span>}
                   </span>
                 </span>
                 <ChevronDown size={17} className={cx('shrink-0 text-muted transition-transform duration-200', open && 'rotate-180')} />
@@ -552,21 +552,22 @@ function Deploys({ app }: { app: AppDetailData }) {
                   )}
                   {d.commits.length > 0 && (
                     <div>
-                      <div className="mb-1.5 text-[13px] font-semibold text-muted">커밋 {d.commits.length}개</div>
-                      <div className="overflow-hidden rounded-[12px] bg-fill/50">
+                      <div className="mb-1.5 text-footnote font-semibold text-muted">커밋 {d.commits.length}개</div>
+                      <div className="overflow-hidden rounded-control bg-fill/50">
                         {d.commits.slice(0, 15).map((c, ci) => (
-                          <div key={c.sha} className={cx('flex items-center gap-2.5 px-3 py-2 text-[14px]', ci > 0 && 'hairline-t')}>
+                          <div key={c.sha} className={cx('flex items-center gap-2.5 px-3 py-2 text-body', ci > 0 && 'hairline-t')}>
                             <GitCommitHorizontal size={15} className="shrink-0 text-muted" />
-                            <a href={app.repoWeb ? `${app.repoWeb}/commit/${c.sha}` : undefined} target="_blank" rel="noreferrer" className="mono shrink-0 text-[13px] text-accent-2 hover:opacity-75">
+                            <a href={app.repoWeb ? `${app.repoWeb}/commit/${c.sha}` : undefined} target="_blank" rel="noreferrer" className="mono shrink-0 text-footnote text-accent-2 hover:opacity-75">
                               {sha(c.sha)}
                             </a>
                             <span className="min-w-0 flex-1 truncate">{c.message}</span>
-                            <span className="hidden shrink-0 text-[13px] text-muted sm:inline">
-                              {c.author} · {ago(c.date)}
+                            <span className="hidden shrink-0 gap-x-3 text-footnote text-muted sm:flex">
+                              <span>{c.author}</span>
+                              <span>{ago(c.date)}</span>
                             </span>
                           </div>
                         ))}
-                        {d.commits.length > 15 && <div className="hairline-t px-3 py-2 text-[13px] text-muted">외 {d.commits.length - 15}개</div>}
+                        {d.commits.length > 15 && <div className="hairline-t px-3 py-2 text-footnote text-muted">외 {d.commits.length - 15}개</div>}
                       </div>
                     </div>
                   )}
@@ -584,12 +585,12 @@ function Deploys({ app }: { app: AppDetailData }) {
                           icon={<Undo2 size={14} />}
                           loading={busy === `rb${d.id}`}
                           onClick={async () => {
-                            if (!(await confirm({ title: `${sha(d.to_sha)} 으로 롤백`, body: '이 버전으로 되돌립니다. 원격의 최신 커밋은 새 푸시가 올 때까지 자동 배포하지 않습니다.', confirm: '롤백' }))) return;
+                            if (!(await confirm({ title: `${sha(d.to_sha)} 버전으로 롤백할까요?`, body: '원격의 최신 커밋은 새 푸시가 올 때까지 자동 배포하지 않습니다.', confirm: '롤백' }))) return;
                             run(`rb${d.id}`, async () => {
                               const r = await api.post<{ id: number }>(`/api/apps/${app.slug}/rollback`, { deployId: d.id });
                               setOpenId(r.id);
                               reload();
-                            });
+                            }, '롤백을 시작했습니다');
                           }}
                         >
                           이 버전으로 롤백
@@ -605,7 +606,7 @@ function Deploys({ app }: { app: AppDetailData }) {
                               const r = await api.post<{ id: number }>(`/api/apps/${app.slug}/deploy`, { sha: d.to_sha });
                               setOpenId(r.id);
                               reload();
-                            })
+                            }, '배포를 다시 시작했습니다')
                           }
                         >
                           다시 시도
@@ -664,34 +665,34 @@ function DiffModal({ deploy, onClose }: { deploy: Deploy | null; onClose: () => 
         <div className="grid gap-4 md:grid-cols-[280px_minmax(0,1fr)]">
           <div className="min-w-0">
             <div className="mb-2 flex items-center justify-between gap-2 px-1">
-              <span className="text-[13px] font-semibold text-muted">파일 {stat.length}개</span>
+              <span className="text-footnote font-semibold text-muted">파일 {stat.length}개</span>
               {web.startsWith('https://github.com/') && deploy?.from_sha && (
-                <a href={`${web}/compare/${deploy.from_sha}...${deploy.to_sha}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[13px] text-accent-2 hover:opacity-75">
+                <a href={`${web}/compare/${deploy.from_sha}...${deploy.to_sha}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-footnote text-accent-2 hover:opacity-75">
                   GitHub 에서 비교 <ExternalLink size={12} />
                 </a>
               )}
             </div>
-            <div className="max-h-[60vh] overflow-auto rounded-[12px] bg-fill/50 max-md:max-h-[30vh]">
+            <div className="max-h-[60vh] overflow-auto rounded-control bg-fill/50 max-md:max-h-[30vh]">
               {stat.map((s, i) => (
                 <button
                   key={s.file}
                   type="button"
                   onClick={() => setFile(s.file)}
-                  className={cx('flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] transition-colors cursor-pointer', i > 0 && 'hairline-t', file === s.file ? 'bg-accent/12' : 'hover:bg-fill')}
+                  className={cx('flex w-full items-center gap-2 px-3 py-2 text-left text-footnote transition-colors cursor-pointer', i > 0 && 'hairline-t', file === s.file ? 'bg-accent/12' : 'hover:bg-fill')}
                 >
                   <span className={cx('mono min-w-0 flex-1 truncate', file === s.file && 'text-accent-2')}>{s.file}</span>
                   {s.add >= 0 ? (
-                    <span className="mono shrink-0 text-[12px]">
+                    <span className="shrink-0 text-caption">
                       <span className="text-ok">+{s.add}</span> <span className="text-bad">-{s.del}</span>
                     </span>
                   ) : (
-                    <span className="shrink-0 text-[12px] text-muted">바이너리</span>
+                    <span className="shrink-0 text-caption text-muted">바이너리</span>
                   )}
                 </button>
               ))}
             </div>
           </div>
-          <div className="console mono max-h-[60vh] min-h-[200px] min-w-0 overflow-auto rounded-[14px] p-3 text-[12.5px] leading-[1.55] whitespace-pre">
+          <div className="console mono max-h-[60vh] min-h-[200px] min-w-0 overflow-auto rounded-card p-3 text-caption leading-[1.55] whitespace-pre">
             {file === null ? (
               <span className="text-muted">왼쪽에서 파일을 고르세요</span>
             ) : loading ? (
@@ -725,7 +726,7 @@ function Links({ app, reload, running }: { app: AppDetailData; reload: () => voi
     }
   };
   return (
-    <Card title="데이터베이스 연결" pad={false} footer={app.links.length === 0 ? 'MariaDB · Redis 를 연결하면 접속 정보(DATABASE_URL, REDIS_URL 등)가 환경변수로 자동으로 들어갑니다.' : undefined}>
+    <Card title="데이터베이스 연결" pad={false} footer={app.links.length === 0 ? 'MariaDB나 Redis를 연결하면 접속 정보(DATABASE_URL, REDIS_URL 등)가 환경변수로 들어갑니다.' : undefined}>
       {app.links.map((l) => (
         <Row
           key={l.slug}
@@ -735,10 +736,20 @@ function Links({ app, reload, running }: { app: AppDetailData; reload: () => voi
               <Link to={`/databases/${l.slug}`} className="truncate font-medium hover:text-accent-2">
                 {l.name}
               </Link>
-              {l.prefix && <Badge tone="purple">접두사 {l.prefix}</Badge>}
+              {l.prefix && (
+                <span className="shrink-0 text-footnote text-muted">
+                  접두사 <span className="mono">{l.prefix}</span>
+                </span>
+              )}
             </span>
           }
-          sub={<span className="mono text-[12.5px]">{l.keys.join(' · ')}</span>}
+          sub={
+            <span className="mono flex flex-wrap gap-x-3 text-caption">
+              {l.keys.map((k) => (
+                <span key={k}>{k}</span>
+              ))}
+            </span>
+          }
           trailing={
             <IconButton
               title="연결 해제"
@@ -757,7 +768,7 @@ function Links({ app, reload, running }: { app: AppDetailData; reload: () => voi
       ))}
       <div className={cx('px-4 py-4 sm:px-5', app.links.length > 0 && 'hairline-t')}>
         {available.length === 0 ? (
-          <div className="text-[15px] text-muted">
+          <div className="text-body text-muted">
             {app.links.length ? '더 연결할 DB 가 없습니다.' : '아직 DB 가 없습니다.'}{' '}
             <Link to="/databases?new=1" className="text-accent-2 hover:opacity-75">
               새 DB 만들기

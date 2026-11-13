@@ -1,7 +1,7 @@
 import { Check, Clock, Ellipsis, ExternalLink, Play, RotateCw, Square, X } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { api } from '../lib/api';
-import { delayText, sha } from '../lib/format';
+import { delayText, josa, sha } from '../lib/format';
 import type { RunState } from '../lib/store';
 import { Badge, Button, IconButton, Modal, cx, toast, useAction, useConfirm } from './ui';
 
@@ -40,7 +40,7 @@ const DS: Record<DeployStatus, { label: string; tone: 'gray' | 'green' | 'red' |
   running: { label: '배포 중', tone: 'purple' },
   success: { label: '성공', tone: 'green' },
   failed: { label: '실패', tone: 'red' },
-  rolled_back: { label: '실패 · 롤백됨', tone: 'red' },
+  rolled_back: { label: '실패해 되돌림', tone: 'red' },
   rejected: { label: '거절됨', tone: 'gray' },
   cancelled: { label: '취소됨', tone: 'gray' },
   superseded: { label: '건너뜀', tone: 'gray' },
@@ -67,7 +67,7 @@ export function Countdown({ at }: { at: number }) {
     return () => clearInterval(t);
   }, []);
   const left = Math.max(0, Math.round((at - Date.now()) / 1000));
-  return <span className="mono">{left >= 60 ? `${Math.floor(left / 60)}분 ${left % 60}초` : `${left}초`}</span>;
+  return <span>{left >= 60 ? `${Math.floor(left / 60)}분 ${left % 60}초` : `${left}초`}</span>;
 }
 
 /** 승인 대기 / 예약 배포 카드 내용 + 버튼 */
@@ -77,21 +77,21 @@ export function PendingDeploy({ d, compact }: { d: Deploy; compact?: boolean }) 
   return (
     <div className={cx('flex flex-col gap-3 sm:flex-row sm:items-center', !compact && 'py-1')}>
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[15px]">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-body">
           {d.appName && <span className="font-semibold">{d.appName}</span>}
           <DeployBadge status={d.status} />
-          <span className="mono text-[13px] text-muted">
+        </div>
+        {head && <div className="mt-0.5 truncate text-body text-fg-2">{head.message}</div>}
+        {/* 누가, 어디서 어디로, 몇 개: 점 대신 간격으로 나눈다 */}
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-footnote text-muted">
+          {head && <span>{head.author}</span>}
+          <span className="mono">
             {sha(d.from_sha)} → {sha(d.to_sha)}
           </span>
-          {d.commits.length > 1 && <span className="text-[13px] text-muted">커밋 {d.commits.length}개</span>}
+          {d.commits.length > 1 && <span>커밋 {d.commits.length}개</span>}
         </div>
-        {head && (
-          <div className="mt-1 truncate text-[14px] text-fg-2">
-            {head.message} <span className="text-muted">— {head.author}</span>
-          </div>
-        )}
         {d.status === 'scheduled' && d.scheduled_at && (
-          <div className="mt-1 flex items-center gap-1.5 text-[13px] font-medium text-accent-2">
+          <div className="mt-1 flex items-center gap-1.5 text-footnote font-medium text-accent-2">
             <Clock size={13} /> <Countdown at={d.scheduled_at} /> 뒤 자동 적용
           </div>
         )}
@@ -99,7 +99,7 @@ export function PendingDeploy({ d, compact }: { d: Deploy; compact?: boolean }) 
       {(d.status === 'pending' || d.status === 'scheduled' || d.status === 'queued') && (
         <div className="flex shrink-0 gap-2">
           {d.status !== 'queued' && (
-            <Button size="sm" variant="success" icon={<Check size={14} />} loading={busy === 'ok'} onClick={() => run('ok', () => api.post(`/api/deploys/${d.id}/approve`), d.status === 'pending' ? '승인했습니다. 배포를 시작합니다.' : '바로 적용합니다')}>
+            <Button size="sm" variant="success" icon={<Check size={14} />} loading={busy === 'ok'} onClick={() => run('ok', () => api.post(`/api/deploys/${d.id}/approve`), d.status === 'pending' ? '승인했습니다. 배포를 시작합니다' : '지금 적용합니다')}>
               {d.status === 'pending' ? '승인' : '지금 적용'}
             </Button>
           )}
@@ -113,7 +113,7 @@ export function PendingDeploy({ d, compact }: { d: Deploy; compact?: boolean }) 
 }
 
 /** 시작/정지/재시작 버튼 묶음 */
-export function AppPower({ slug, state, deployed, size = 'sm' }: { slug: string; state: RunState | null | undefined; deployed: boolean; size?: 'sm' | 'md' }) {
+export function AppPower({ slug, name, state, deployed, size = 'sm' }: { slug: string; name?: string; state: RunState | null | undefined; deployed: boolean; size?: 'sm' | 'md' }) {
   const { busy, run } = useAction();
   const confirm = useConfirm();
   const act = (a: string, msg: string) => run(a, () => api.post(`/api/apps/${slug}/action`, { action: a }), msg);
@@ -132,7 +132,7 @@ export function AppPower({ slug, state, deployed, size = 'sm' }: { slug: string;
           icon={<Square size={13} />}
           loading={busy === 'stop'}
           onClick={async () => {
-            if (await confirm({ title: '앱 정지', body: '앱을 정지합니다. 자동 배포는 코드만 받아 두고 시작하지 않습니다.', confirm: '정지' })) act('stop', '정지했습니다');
+            if (await confirm({ title: `${josa(name ?? '앱', '을', '를')} 정지할까요?`, body: '자동 배포는 새 코드를 받아 두기만 하고 앱을 시작하지 않습니다.', confirm: '정지' })) act('stop', '정지했습니다');
           }}
         >
           정지
@@ -192,8 +192,8 @@ export function AppMenu({ slug, name, state, deployed, publicUrl }: { slug: stri
   };
   const item = (icon: ReactNode, label: string, onClick: () => void, tone?: 'ok') => (
     <button type="button" onClick={onClick} className="row flex w-full items-center gap-3 pl-4 text-left transition-colors active:bg-fill cursor-pointer">
-      <span className={cx('flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[8px]', tone === 'ok' ? 'bg-ok-dot text-white' : 'bg-fill-2 text-fg-2')}>{icon}</span>
-      <span className="row-body flex min-h-[50px] flex-1 items-center pr-4 text-[16px]">{label}</span>
+      <span className={cx('flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-tile', tone === 'ok' ? 'bg-ok-dot text-white' : 'bg-fill-2 text-fg-2')}>{icon}</span>
+      <span className="row-body flex min-h-[50px] flex-1 items-center pr-4 text-body">{label}</span>
     </button>
   );
   return (
@@ -213,7 +213,7 @@ export function AppMenu({ slug, name, state, deployed, publicUrl }: { slug: stri
               ? item(<Play size={16} />, '시작', () => act('start', '시작했습니다'), 'ok')
               : item(<Square size={15} />, '정지', async () => {
                   setOpen(false);
-                  if (await confirm({ title: '앱 정지', body: '앱을 정지합니다. 자동 배포는 코드만 받아 두고 시작하지 않습니다.', confirm: '정지' })) act('stop', '정지했습니다');
+                  if (await confirm({ title: `${josa(name, '을', '를')} 정지할까요?`, body: '자동 배포는 새 코드를 받아 두기만 하고 앱을 시작하지 않습니다.', confirm: '정지' })) act('stop', '정지했습니다');
                 }))}
           {deployed && item(<RotateCw size={16} />, '재시작', () => act('restart', '재시작했습니다'))}
         </div>

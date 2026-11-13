@@ -62,3 +62,12 @@ export function delayText(sec: number) {
   if (sec < 3600) return `${Math.round(sec / 60)}분`;
   return `${Math.round((sec / 3600) * 10) / 10}시간`;
 }
+
+/** 앞말의 받침에 맞춰 조사를 붙인다: josa('채팅 필터', '을', '를') → '채팅 필터를' */
+export function josa(word: string, withFinal: string, withoutFinal: string) {
+  const w = word.trim();
+  const c = w.charCodeAt(w.length - 1);
+  // 한글이면 받침으로, 숫자 · 영문이면 읽는 소리로 어림한다 (1 일, 3 삼, 6 육, 7 칠, 8 팔, 0 영, l · m · n)
+  const final = c >= 0xac00 && c <= 0xd7a3 ? (c - 0xac00) % 28 !== 0 : /[0136780lmn]$/i.test(w);
+  return w + (final ? withFinal : withoutFinal);
+}

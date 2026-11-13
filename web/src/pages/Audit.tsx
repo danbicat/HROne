@@ -104,19 +104,21 @@ export function AuditPanel() {
   }, []);
   return (
     <div className="space-y-4">
-      <p className="px-1 text-[15px] text-muted">누가 언제 무엇을 했는지 남습니다 (최근 2만 건).</p>
+      <p className="px-1 text-body text-muted">패널에서 누가 언제 무엇을 했는지 최근 2만 건까지 남깁니다.</p>
       {!rows ? (
         <Loading />
       ) : rows.length === 0 ? (
         <div className="card">
-          <Empty icon={<Activity size={22} />} title="기록이 없습니다" />
+          <Empty icon={<Activity size={22} />} title="아직 활동 기록이 없습니다">
+            로그인하거나 앱과 DB 를 다루면 여기에 기록됩니다.
+          </Empty>
         </div>
       ) : (
         <div className="card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-[14px]">
+            <table className="w-full min-w-[720px] text-body">
               <thead>
-                <tr className="text-left text-[12.5px] font-semibold text-muted">
+                <tr className="text-left text-caption font-semibold text-muted">
                   <th className="py-2.5 pl-5 pr-3 font-semibold">시각</th>
                   <th className="px-3 py-2.5 font-semibold">계정</th>
                   <th className="px-3 py-2.5 font-semibold">작업</th>
@@ -127,16 +129,16 @@ export function AuditPanel() {
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.id} className="hairline-t align-top transition-colors hover:bg-fill/50">
-                    <td className="mono whitespace-nowrap py-3 pl-5 pr-3 text-[13px] text-fg-2">{dateTime(r.ts)}</td>
+                    <td className="whitespace-nowrap py-3 pl-5 pr-3 text-footnote text-fg-2">{dateTime(r.ts)}</td>
                     <td className="px-3 py-3">
                       <div className="font-medium">{r.username}</div>
-                      {r.ip && <div className="mono mt-0.5 text-[12.5px] text-muted">{r.ip}</div>}
+                      {r.ip && <div className="mono mt-0.5 text-caption text-muted">{r.ip}</div>}
                     </td>
                     <td className="px-3 py-3">
-                      <Badge tone={TONE(r.action)}>{LABEL[r.action] ?? r.action}</Badge>
+                      {TONE(r.action) === 'red' || TONE(r.action) === 'yellow' ? <Badge tone={TONE(r.action)}>{LABEL[r.action] ?? r.action}</Badge> : <span>{LABEL[r.action] ?? r.action}</span>}
                     </td>
-                    <td className="mono px-3 py-3 text-[13px]">{r.target || '-'}</td>
-                    <td className="mono max-w-md truncate py-3 pl-3 pr-5 text-[12.5px] text-muted" title={r.detail}>
+                    <td className="mono px-3 py-3 text-footnote">{r.target || '-'}</td>
+                    <td className="mono max-w-md truncate py-3 pl-3 pr-5 text-caption text-muted" title={r.detail}>
                       {r.detail}
                     </td>
                   </tr>

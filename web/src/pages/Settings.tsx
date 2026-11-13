@@ -6,9 +6,9 @@ import { PanelUpdate } from '../components/PanelUpdate';
 import type { Me } from '../components/Layout';
 import { Badge, Button, Card, CopyField, Field, IconButton, IconTile, List, Modal, Notice, PageHeader, Row, SectionHeader, Segmented, Tabs, Toggle, cx, toast, useAction } from '../components/ui';
 import { api, errorText } from '../lib/api';
-import { ago } from '../lib/format';
+import { ago, josa } from '../lib/format';
 import { setTheme, useTheme, type ThemePref } from '../lib/theme';
-import { setQuery, useLocation, useTitle } from '../lib/router';
+import { Link, setQuery, useLocation, useTitle } from '../lib/router';
 import { useApi } from '../lib/store';
 import { AuditPanel } from './Audit';
 
@@ -58,7 +58,7 @@ export function Settings({ me }: { me: Me }) {
         onChange={(t) => setQuery('tab', t === 'account' ? null : t)}
         tabs={[
           { value: 'account', label: '내 계정' },
-          { value: 'connect', label: 'GitHub · 알림' },
+          { value: 'connect', label: '연결' },
           { value: 'access', label: '패널 접속' },
           { value: 'update', label: '업데이트' },
           { value: 'audit', label: '활동 기록' },
@@ -100,14 +100,14 @@ function PanelAccess({ s, reload }: { s: SettingsData; reload: () => void }) {
           value={p.access}
           onChange={(v) => setP({ ...p, access: v })}
           options={[
-            { value: 'private', label: 'Tailscale · 사설망만' },
+            { value: 'private', label: 'Tailscale과 사설망' },
             { value: 'custom', label: '지정한 IP 만' },
             { value: 'all', label: '모든 IP' },
           ]}
         />
       </Field>
       {p.access === 'private' && (
-        <div className="text-[14px] leading-relaxed text-muted">허용: 127.0.0.1, Tailscale (100.64.0.0/10, fd7a::/48), 10/8, 172.16/12, 192.168/16. cloudflared 를 거쳐 들어온 외부 요청은 실제 IP 로 판단해서 막습니다.</div>
+        <div className="text-footnote text-muted">허용: 127.0.0.1, Tailscale (100.64.0.0/10, fd7a::/48), 10/8, 172.16/12, 192.168/16. cloudflared 를 거쳐 들어온 외부 요청은 실제 IP 로 판단해서 막습니다.</div>
       )}
       {p.access === 'all' && <Notice tone="red">공인 IP 에서도 로그인 화면이 열립니다. OTP 를 꼭 켜고, 가능하면 Cloudflare Access 등으로 한 겹 더 막으세요.</Notice>}
       {p.access === 'custom' && (
@@ -152,7 +152,7 @@ function GitHub({ s, reload }: { s: SettingsData; reload: () => void }) {
   const { busy, run } = useAction();
   return (
     <Section title="GitHub" actions={s.githubTokenSet ? <Badge tone="green">토큰 설정됨</Badge> : <Badge>토큰 없음</Badge>}>
-      <p className="text-[14px] leading-relaxed text-muted">
+      <p className="text-footnote text-muted">
         비공개 저장소를 받거나 앱 추가 화면에서 내 저장소 목록을 보려면 토큰을 넣으세요. Fine-grained token 이라면 Repository access 에서 저장소를 고르고 Contents: Read-only, Metadata: Read-only 면 충분합니다.
       </p>
       <div className="flex flex-wrap gap-2 sm:flex-nowrap">
@@ -165,9 +165,9 @@ function GitHub({ s, reload }: { s: SettingsData; reload: () => void }) {
             run('s', async () => {
               await api.put('/api/settings', { githubToken: token });
               const r = await api.get<{ repos: unknown[] }>('/api/github/repos').catch((e) => {
-                throw new Error(`저장했지만 확인에 실패했습니다: ${errorText(e)}`);
+                throw new Error(`토큰은 저장했지만 저장소 목록을 불러오지 못했습니다. 토큰 권한을 확인하세요. ${errorText(e)}`);
               });
-              toast.ok(`저장했습니다 · 저장소 ${r.repos.length}개 보임`);
+              toast.ok(`저장했습니다. 저장소 ${r.repos.length}개를 볼 수 있습니다`);
               setToken('');
               reload();
             })
@@ -196,8 +196,8 @@ function Notifications({ s, reload }: { s: SettingsData; reload: () => void }) {
   const { busy, run } = useAction();
   return (
     <>
-    <Section title="알림 (디스코드)" actions={s.discordSet ? <Badge tone="green">연결됨</Badge> : undefined}>
-      <Field label="전역 웹후크" hint={s.discordSet ? `현재: ${s.discordWebhook}` : '디스코드 채널 → 설정 → 연동 → 웹후크 → URL 복사'}>
+    <Section title="디스코드 알림" actions={s.discordSet ? <Badge tone="green">연결됨</Badge> : undefined}>
+      <Field label="전역 웹후크" hint={s.discordSet ? `현재: ${s.discordWebhook}` : '디스코드 채널 설정 → 연동 → 웹후크에서 URL 을 복사해 넣으세요'}>
         <div className="flex flex-wrap gap-2 sm:flex-nowrap">
           <input className="input mono min-w-0 flex-1" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://discord.com/api/webhooks/..." />
           <Button variant="primary" disabled={!url} loading={busy === 'u'} onClick={() => run('u', () => api.put('/api/settings', { discordWebhook: url }).then(() => (setUrl(''), reload())), '저장했습니다')}>
@@ -208,7 +208,7 @@ function Notifications({ s, reload }: { s: SettingsData; reload: () => void }) {
               <Button loading={busy === 't'} onClick={() => run('t', () => api.post('/api/settings/test-discord'), '테스트 알림을 보냈습니다')}>
                 테스트
               </Button>
-              <Button variant="danger" loading={busy === 'x'} onClick={() => run('x', () => api.put('/api/settings', { discordWebhook: '' }).then(reload), '지웠습니다')}>
+              <Button variant="danger" loading={busy === 'x'} onClick={() => run('x', () => api.put('/api/settings', { discordWebhook: '' }).then(reload), '웹후크를 지웠습니다')}>
                 지우기
               </Button>
             </>
@@ -232,22 +232,22 @@ function Notifications({ s, reload }: { s: SettingsData; reload: () => void }) {
           ))}
         </ToggleRows>
         <Field label="새 앱 기본 폴링 주기 (초)" className="hairline-t pt-5">
-          <input className="input mono sm:w-40" inputMode="numeric" value={d.pollIntervalSec} onChange={(e) => setD({ ...d, pollIntervalSec: Number(e.target.value.replace(/\D/g, '')) || 60 })} />
+          <input className="input sm:w-40" inputMode="numeric" value={d.pollIntervalSec} onChange={(e) => setD({ ...d, pollIntervalSec: Number(e.target.value.replace(/\D/g, '')) || 60 })} />
         </Field>
     </Section>
     <Section title="서버 경고">
       <Toggle checked={a.enabled} onChange={(v) => setA({ ...a, enabled: v })} label="서버 경고 알림 (디스크/메모리/DB 다운)" />
       <div className="hairline-t grid gap-5 pt-5 sm:grid-cols-2">
         <Field label="디스크 경고 (%)">
-          <input className="input mono" inputMode="numeric" value={a.diskPercent} onChange={(e) => setA({ ...a, diskPercent: Number(e.target.value.replace(/\D/g, '')) || 90 })} />
+          <input className="input" inputMode="numeric" value={a.diskPercent} onChange={(e) => setA({ ...a, diskPercent: Number(e.target.value.replace(/\D/g, '')) || 90 })} />
         </Field>
         <Field label="메모리 경고 (%, 3분 지속)">
-          <input className="input mono" inputMode="numeric" value={a.memPercent} onChange={(e) => setA({ ...a, memPercent: Number(e.target.value.replace(/\D/g, '')) || 95 })} />
+          <input className="input" inputMode="numeric" value={a.memPercent} onChange={(e) => setA({ ...a, memPercent: Number(e.target.value.replace(/\D/g, '')) || 95 })} />
         </Field>
       </div>
     </Section>
     <div className="-mt-5 flex items-center justify-end gap-3">
-      <span className="text-[13px] text-muted">기본 알림 항목과 서버 경고를 함께 저장합니다</span>
+      <span className="text-footnote text-muted">기본 알림 항목과 서버 경고를 함께 저장합니다</span>
       <Button variant="primary" icon={<Save size={15} />} loading={busy === 's'} onClick={() => run('s', () => api.put('/api/settings', { defaults: d, alerts: a }).then(reload), '저장했습니다')}>
         저장
       </Button>
@@ -290,14 +290,14 @@ function Account({ me }: { me: Me }) {
             variant="primary"
             disabled={!cur || next.length < 8 || next !== next2}
             loading={busy === 'pw'}
-            onClick={() => run('pw', () => api.post('/api/auth/password', { current: cur, next, totp: totpOtp }).then(() => (setCur(''), setNext(''), setNext2(''))), '비밀번호를 바꿨습니다. 다른 기기의 로그인은 끊겼습니다.')}
+            onClick={() => run('pw', () => api.post('/api/auth/password', { current: cur, next, totp: totpOtp }).then(() => (setCur(''), setNext(''), setNext2(''))), '비밀번호를 변경했습니다. 다른 기기의 로그인은 끊겼습니다')}
           >
             비밀번호 변경
           </Button>
         </div>
       </Section>
 
-      <Card title="2단계 인증" pad={false} footer="로그인과 삭제·복원 같은 위험한 작업에 인증 앱 코드를 요구합니다.">
+      <Card title="2단계 인증" pad={false} footer="로그인할 때와 삭제나 복원 같은 위험한 작업을 할 때 인증 앱 코드를 요구합니다.">
         <Row
           icon={
             <IconTile tone={me.totpEnabled ? 'ok' : 'gray'}>
@@ -307,7 +307,7 @@ function Account({ me }: { me: Me }) {
           title="2단계 인증 (OTP)"
           trailing={
             <span className="flex shrink-0 items-center gap-2">
-              {me.totpEnabled ? <Badge tone="green">켜짐</Badge> : <Badge>꺼짐</Badge>}
+              {!me.totpEnabled && <Badge>꺼짐</Badge>}
               {me.totpEnabled ? (
                 <Button size="sm" variant="danger" onClick={() => setDisableOpen(true)}>
                   끄기
@@ -342,7 +342,7 @@ function Account({ me }: { me: Me }) {
             <Row
               key={s.id}
               title={s.user_agent.replace(/\(.*?\)/g, '').slice(0, 80) || '알 수 없는 브라우저'}
-              sub={`${s.ip} · 마지막 ${ago(s.last_seen_at)}`}
+              sub={`${s.ip}, 마지막 접속 ${ago(s.last_seen_at)}`}
               trailing={
                 s.current ? (
                   <Badge tone="green">지금 이 기기</Badge>
@@ -385,25 +385,29 @@ function Account({ me }: { me: Me }) {
         }
       >
         {setup && (
-          <div className="space-y-5 text-[15px]">
-            <p className="leading-relaxed text-fg-2">Google Authenticator, 1Password, Authy 등으로 QR 을 찍은 뒤 나오는 6자리 코드를 입력하세요.</p>
-            <div className="mx-auto w-fit rounded-[14px] bg-white p-2">
+          <div className="space-y-5 text-body">
+            <p className="text-fg-2">Google Authenticator, 1Password, Authy 등으로 QR 을 찍은 뒤 나오는 6자리 코드를 입력하세요.</p>
+            <div className="mx-auto w-fit rounded-control bg-white p-2">
               <img src={setup.qr} alt="OTP QR" className="block" width={220} height={220} />
             </div>
             <Field label="직접 입력용 키">
               <CopyField value={setup.secret} />
             </Field>
             <Field label="6자리 코드">
-              <input className="input mono text-center text-lg tracking-[0.4em]" inputMode="numeric" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} autoFocus />
+              <input className="input mono text-center text-headline font-normal tracking-[0.4em]" inputMode="numeric" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} autoFocus />
             </Field>
-            <p className="text-[13px] leading-relaxed text-muted">휴대폰을 잃어버리면 서버에서 sudo hrone disable-2fa {me.username} 로 끌 수 있습니다.</p>
+            <p className="text-footnote text-muted">
+              휴대폰을 잃어버리면 서버에서 이 명령으로 끌 수 있습니다.
+              <code className="mono mt-1 block text-fg-2">sudo hrone disable-2fa {me.username}</code>
+            </p>
           </div>
         )}
       </Modal>
       <ReauthDialog
         open={disableOpen}
         onClose={() => setDisableOpen(false)}
-        title="OTP 끄기"
+        title="OTP를 끌까요?"
+        body="로그인할 때 인증 앱 코드를 더 이상 묻지 않습니다."
         needTotp
         danger
         confirmLabel="끄기"
@@ -432,7 +436,15 @@ function UsersCard({ me }: { me: Me }) {
           추가
         </Button>
       }
-      footer="모든 계정은 같은 전체 권한을 가집니다. 변경 내용은 활동 기록에 계정별로 남습니다."
+      footer={
+        <>
+          모든 계정은 같은 전체 권한을 가집니다. 변경 내용은{' '}
+          <Link to="/settings?tab=audit" className="text-accent-2 hover:underline">
+            활동 기록
+          </Link>
+          에 계정별로 남습니다.
+        </>
+      }
     >
       {(data ?? []).map((x) => (
         <Row
@@ -441,7 +453,7 @@ function UsersCard({ me }: { me: Me }) {
           sub={x.lastLoginAt ? `${ago(x.lastLoginAt)} 로그인` : '로그인 기록 없음'}
           trailing={
             <span className="flex shrink-0 items-center gap-1.5">
-              {x.totpEnabled && <Badge tone="green">OTP</Badge>}
+              {!x.totpEnabled && <Badge tone="yellow">OTP 꺼짐</Badge>}
               {x.username !== me.username && (
                 <IconButton title="삭제" onClick={() => setDel(x)}>
                   <Trash2 size={15} />
@@ -479,7 +491,8 @@ function UsersCard({ me }: { me: Me }) {
       <ReauthDialog
         open={!!del}
         onClose={() => setDel(null)}
-        title={`${del?.username} 삭제`}
+        title={`${josa(del?.username ?? '', '을', '를')} 삭제할까요?`}
+        body="이 계정으로는 더 이상 로그인할 수 없습니다."
         danger
         confirmLabel="삭제"
         needTotp={me.totpEnabled}
@@ -505,7 +518,7 @@ function Appearance() {
   return (
     <Card title="화면" footer="이 브라우저에만 저장됩니다. 시스템을 고르면 기기의 라이트/다크 설정을 따릅니다.">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="text-[15px]">테마</span>
+        <span className="text-body">테마</span>
         <Segmented value={theme} onChange={setTheme} options={THEMES} />
       </div>
     </Card>

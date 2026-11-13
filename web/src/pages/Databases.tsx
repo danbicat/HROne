@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { JobDialog } from '../components/Dialogs';
 import { Badge, Button, Disclosure, Empty, Field, List, Loading, Modal, Notice, PageHeader, Row, Segmented, StatusBadge, toast } from '../components/ui';
 import { api, errorText } from '../lib/api';
-import { bytes, pct } from '../lib/format';
+import { bytes, josa, pct } from '../lib/format';
 import { navigate, setQuery, useLocation, useTitle } from '../lib/router';
 import { useApi, useLive } from '../lib/store';
 import { DbIcon, type DbSummary } from './Dashboard';
@@ -105,15 +105,15 @@ export function CreateDbModal({ open, onClose }: { open: boolean; onClose: () =>
                 { value: 'redis', label: 'Redis' },
               ]}
             />
-            <div className="text-[13px] text-muted">{type === 'mariadb' ? 'MySQL 과 같은 SQL DB' : '캐시 · 큐 · 세션'}</div>
+            <div className="text-footnote text-muted">{type === 'mariadb' ? 'MySQL과 같은 SQL DB' : '캐시, 큐, 세션 저장소'}</div>
           </div>
           <Field label="이름">
             <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={type === 'mariadb' ? '메인 DB' : '캐시'} autoFocus />
           </Field>
           {engines && !installed && (
-            <Notice tone="blue">{type === 'mariadb' ? 'MariaDB' : 'Redis'} 가 아직 설치되지 않았습니다. 만들 때 자동으로 설치합니다 (1~2분).</Notice>
+            <Notice tone="blue">{josa(type === 'mariadb' ? 'MariaDB' : 'Redis', '이', '가')} 아직 설치되지 않았습니다. 만들 때 자동으로 설치하며 1~2분 걸립니다.</Notice>
           )}
-          <p className="text-[13px] leading-relaxed text-muted">이 서버 안에서만 접속할 수 있게 만들어집니다. 앱 → 환경변수 탭에서 연결하면 접속 정보가 자동으로 들어갑니다.</p>
+          <p className="text-footnote text-muted">이 서버 안에서만 접속할 수 있게 만들어집니다. 앱의 환경변수 탭에서 연결하면 접속 정보가 자동으로 들어갑니다.</p>
           <Disclosure label="고급 설정">
             <div className="grid gap-5 sm:grid-cols-2">
               <Field label="ID" hint="영문 소문자/숫자/-. DB 이름과 계정 이름에도 쓰이며 나중에 못 바꿉니다">
@@ -144,7 +144,7 @@ export function CreateDbModal({ open, onClose }: { open: boolean; onClose: () =>
                 ]}
               />
             </Field>
-            {!valid && <div className="text-[13px] text-bad">ID 는 영문 소문자로 시작하는 2~24자여야 합니다.</div>}
+            {!valid && <div className="text-footnote text-bad">ID는 영문 소문자로 시작하는 2~24자로 입력하세요.</div>}
           </Disclosure>
         </div>
       </Modal>
@@ -171,7 +171,7 @@ export function Databases() {
     <div>
       <PageHeader
         title="데이터베이스"
-        sub={data?.length ? `${data.length}개 · 실행 중 ${data.filter((d) => (live.units[`hrone-db-${d.slug}.service`] ?? d.status)?.state === 'running').length}개 · 백업은 매일 자동` : 'MariaDB · Redis. DB 마다 따로 실행되고 백업은 매일 자동으로 됩니다'}
+        sub={data?.length ? `${data.length}개 중 ${data.filter((d) => (live.units[`hrone-db-${d.slug}.service`] ?? d.status)?.state === 'running').length}개 실행 중, 백업은 매일 자동으로 됩니다` : 'MariaDB나 Redis를 DB마다 따로 실행하고 매일 자동으로 백업합니다'}
         actions={
           <Button size="sm" variant="primary" icon={<Plus size={16} />} onClick={() => setQuery('new', '1')}>
             DB 추가
@@ -183,7 +183,7 @@ export function Databases() {
       ) : !data?.length ? (
         <div className="card">
           <Empty icon={<Database />} title="데이터베이스가 없습니다" action={<Button variant="primary" icon={<Plus size={16} />} onClick={() => setQuery('new', '1')}>DB 추가</Button>}>
-            MariaDB 또는 Redis 를 만들고 앱에 연결하면 접속 정보가 환경변수로 자동으로 들어갑니다. 데이터는 앱을 배포해도 그대로 유지됩니다.
+            만든 MariaDB와 Redis가 여기에 나옵니다. DB를 추가하고 앱에 연결하면 접속 정보가 환경변수로 자동으로 들어갑니다.
           </Empty>
         </div>
       ) : (
@@ -192,7 +192,7 @@ export function Databases() {
             const st = live.units[`hrone-db-${d.slug}.service`] ?? d.status;
             const status = d.job ? <Badge tone="blue">준비 중</Badge> : !d.initialized ? <Badge tone="red">초기화 실패</Badge> : <StatusBadge state={st?.state} />;
             const address = `${d.bind === 'local' ? '127.0.0.1' : d.bind === 'all' ? '0.0.0.0' : d.bind}:${d.port}`;
-            const usage = st?.state === 'running' ? `CPU ${pct(st.cpu, 1)} · ${bytes(st.memory)}` : null;
+            const usage = st?.state === 'running' ? { cpu: `CPU ${pct(st.cpu, 1)}`, mem: bytes(st.memory) } : null;
             const apps = d.linkedApps.length ? d.linkedApps.map((a) => a.name).join(', ') : null;
             return (
               <Row
@@ -201,17 +201,23 @@ export function Databases() {
                 icon={<DbIcon type={d.type} size={40} />}
                 title={<span className="font-medium">{d.name}</span>}
                 sub={
-                  <span className="flex items-center gap-2">
+                  <span className="flex min-w-0 items-center gap-x-3">
                     {status}
-                    <span className="truncate">
-                      {d.type === 'mariadb' ? 'MariaDB' : 'Redis'} · {apps ? `앱: ${apps}` : '연결된 앱 없음'}
-                    </span>
+                    <span className="shrink-0">{d.type === 'mariadb' ? 'MariaDB' : 'Redis'}</span>
+                    <span className="truncate">{apps ? `앱: ${apps}` : '연결된 앱 없음'}</span>
                   </span>
                 }
                 trailing={
                   <span className="hidden w-44 min-w-0 shrink-0 text-right md:block">
-                    <span className="mono block truncate text-[13px] text-fg-2">{address}</span>
-                    <span className="block truncate text-[12.5px] text-muted">{usage ?? ''}</span>
+                    <span className="mono block truncate text-footnote text-fg-2">{address}</span>
+                    <span className="flex justify-end gap-x-3 truncate text-caption text-muted">
+                      {usage && (
+                        <>
+                          <span>{usage.cpu}</span>
+                          <span>{usage.mem}</span>
+                        </>
+                      )}
+                    </span>
                   </span>
                 }
               />

@@ -42,6 +42,40 @@
   /* 로그 · 콘솔은 두 테마 모두 어둡게 */
   --color-code: #1d1d1f;
 
+  /*
+   * 글자 크기는 여섯 단계만 쓴다 (iOS 글자 체계에서 웹 패널에 맞는 것만 골랐다)
+   * display  화면 제목, 홈의 상태 문장
+   * title    요약 숫자, 빈 화면 제목
+   * headline 칸 제목, 대화상자 제목
+   * body     목록 · 입력칸 · 본문
+   * footnote 둘째 줄, 도움말, 작은 버튼
+   * caption  배지, 그래프 눈금, 시각
+   */
+  --text-display: 34px;
+  --text-display--line-height: 1.15;
+  --text-display--letter-spacing: -0.025em;
+  --text-display--font-weight: 700;
+  --text-title: 22px;
+  --text-title--line-height: 1.25;
+  --text-title--letter-spacing: -0.02em;
+  --text-title--font-weight: 600;
+  --text-headline: 17px;
+  --text-headline--line-height: 1.35;
+  --text-headline--letter-spacing: -0.015em;
+  --text-headline--font-weight: 600;
+  --text-body: 15px;
+  --text-body--line-height: 1.5;
+  --text-footnote: 13px;
+  --text-footnote--line-height: 1.45;
+  --text-caption: 12px;
+  --text-caption--line-height: 1.35;
+
+  /* 모서리는 겹치는 깊이에 따라: 떠 있는 면 > 칸 > 입력칸 > 작은 타일 */
+  --radius-sheet: 22px;
+  --radius-card: 14px;
+  --radius-control: 10px;
+  --radius-tile: 8px;
+
   --shadow-card: 0 1px 2px rgb(0 0 0 / 0.04);
   --shadow-pop: 0 12px 40px rgb(0 0 0 / 0.14), 0 2px 8px rgb(0 0 0 / 0.06);
   --shadow-seg: 0 1px 3px rgb(0 0 0 / 0.12), 0 0 0 0.5px rgb(0 0 0 / 0.04);
@@ -179,7 +213,7 @@
   /* iOS 그룹 목록의 한 칸: 테두리 없이 바탕색으로만 구분 */
   .card {
     background: var(--color-surface);
-    border-radius: 14px;
+    border-radius: var(--radius-card);
     box-shadow: var(--shadow-card);
   }
   .input {
@@ -187,9 +221,9 @@
     min-height: 2.25rem;
     background: var(--color-fill);
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--radius-control);
     padding: 0.5rem 0.75rem;
-    font-size: 0.9375rem;
+    font-size: var(--text-body);
     outline: none;
     transition: box-shadow 0.15s, background-color 0.15s;
   }
@@ -219,16 +253,16 @@
   }
   .label {
     display: block;
-    font-size: 0.8125rem;
+    font-size: var(--text-footnote);
     font-weight: 600;
     color: var(--color-fg);
     margin-bottom: 0.4rem;
   }
   .hint {
-    font-size: 0.8125rem;
+    font-size: var(--text-footnote);
     color: var(--color-muted);
     margin-top: 0.4rem;
-    line-height: 1.5;
+    line-height: var(--text-footnote--line-height);
   }
   .mono {
     font-family: var(--font-mono);
@@ -370,7 +404,13 @@
 @media (prefers-reduced-motion: reduce) {
   .toast-in,
   .sheet-in,
-  .fade-in {
+  .fade-in,
+  .pulse {
     animation: none;
+  }
+  *,
+  ::before,
+  ::after {
+    transition-duration: 0.01ms !important;
   }
 }

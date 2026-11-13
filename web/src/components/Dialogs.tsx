@@ -1,6 +1,7 @@
 import { AlertTriangle, CheckCircle2, Download, XCircle } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { api, errorText } from '../lib/api';
+import { josa } from '../lib/format';
 import { useChannel } from '../lib/store';
 import { Button, Field, Modal, Spinner, Toggle, cx } from './ui';
 
@@ -95,12 +96,12 @@ export function DangerDialog({
       }
     >
       {step === 1 ? (
-        <div className="space-y-5 text-[15px]">
+        <div className="space-y-5 text-body">
           <p className="text-fg-2">되돌릴 수 없습니다. 아래 항목이 삭제됩니다.</p>
-          <ul className="rounded-[14px] bg-bad/8 px-4">
+          <ul className="rounded-card bg-bad/8 px-4">
             {items.map((it, i) => (
-              <li key={i} className={cx('flex gap-2.5 py-2.5 text-[14px] leading-relaxed text-fg', i > 0 && 'hairline-t')}>
-                <span className="mt-[9px] h-1.5 w-1.5 shrink-0 rounded-full bg-bad-dot" />
+              <li key={i} className={cx('flex gap-2.5 py-2.5 text-body text-fg', i > 0 && 'hairline-t')}>
+                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-bad-dot" />
                 <span className="min-w-0">{it}</span>
               </li>
             ))}
@@ -108,8 +109,8 @@ export function DangerDialog({
           {options && <div className="space-y-4">{options}</div>}
         </div>
       ) : (
-        <div className="space-y-5 text-[15px]">
-          <Field label={<>확인을 위해 <code className="mono rounded-[6px] bg-bad/10 px-1.5 py-0.5 text-bad">{target}</code> 를 입력하세요</>}>
+        <div className="space-y-5 text-body">
+          <Field label={<>확인을 위해 <code className="mono rounded-tile bg-bad/10 px-1.5 py-0.5 text-bad">{target}</code>{josa(target, '을', '를').slice(target.trim().length)} 입력하세요</>}>
             <input className="input mono" value={typed} onChange={(e) => setTyped(e.target.value)} autoFocus autoComplete="off" spellCheck={false} />
           </Field>
           <Field label="비밀번호 재확인">
@@ -120,7 +121,7 @@ export function DangerDialog({
               <input className="input mono tracking-[0.3em]" inputMode="numeric" maxLength={6} value={totp} onChange={(e) => setTotp(e.target.value.replace(/\D/g, ''))} />
             </Field>
           )}
-          {error && <div className="rounded-[12px] bg-bad/10 px-4 py-3 text-[14px] text-bad">{error}</div>}
+          {error && <div className="rounded-control bg-bad/10 px-4 py-3 text-body text-bad">{error}</div>}
         </div>
       )}
     </Modal>
@@ -191,8 +192,8 @@ export function ReauthDialog({
         </>
       }
     >
-      <div className="space-y-5 text-[15px]">
-        {body && <div className="leading-relaxed text-fg-2">{body}</div>}
+      <div className="space-y-5 text-body">
+        {body && <div className="text-fg-2">{body}</div>}
         <Field label="비밀번호">
           <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus />
         </Field>
@@ -201,7 +202,7 @@ export function ReauthDialog({
             <input className="input mono tracking-[0.3em]" inputMode="numeric" maxLength={6} value={totp} onChange={(e) => setTotp(e.target.value.replace(/\D/g, ''))} />
           </Field>
         )}
-        {error && <div className="rounded-[12px] bg-bad/10 px-4 py-3 text-[14px] text-bad">{error}</div>}
+        {error && <div className="rounded-control bg-bad/10 px-4 py-3 text-body text-bad">{error}</div>}
       </div>
     </Modal>
   );
@@ -258,7 +259,7 @@ export function JobDialog({ jobId, onClose, onDone }: { jobId: number | null; on
       footer={
         <>
           {job?.status === 'done' && job.result?.download && (
-            <a href={job.result.download} className="inline-flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-accent px-4 text-sm font-medium text-white transition-[filter] hover:brightness-110">
+            <a href={job.result.download} className="inline-flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-accent px-4 text-body font-medium text-white transition-[filter] hover:brightness-110">
               <Download size={15} />
               백업 파일 내려받기
             </a>
@@ -267,7 +268,7 @@ export function JobDialog({ jobId, onClose, onDone }: { jobId: number | null; on
         </>
       }
     >
-      <div ref={box} className="console mono h-72 overflow-auto rounded-[14px] p-4 text-[12.5px] leading-[1.6] whitespace-pre-wrap break-all">
+      <div ref={box} className="console mono h-72 overflow-auto rounded-control p-4 text-caption leading-[1.6] whitespace-pre-wrap break-all">
         {(job?.lines ?? []).map((l, i) => (
           <div key={i} className={cx(l.startsWith('오류') && 'text-bad', (l === '완료' || l.endsWith('완료')) && 'text-ok')}>
             {l}
